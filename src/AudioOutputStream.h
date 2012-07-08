@@ -35,23 +35,23 @@ MA 02111-1307, USA.
 #define REFTIMES_PER_MILLISEC  10000
 
 struct AudioRenderDevice {
-	CStringW	m_id;
-	CString		m_friendly_name;
-	bool		m_isDefault;
+    CStringW	m_id;
+    CString		m_friendly_name;
+    bool		m_isDefault;
 
-	AudioRenderDevice( LPWSTR id, LPSTR friendly_name, bool isDefault ) :
-		m_id( id ),
-		m_friendly_name( friendly_name ),
-		m_isDefault( isDefault )
-	{}
+    AudioRenderDevice( LPWSTR id, LPSTR friendly_name, bool isDefault ) :
+        m_id( id ),
+        m_friendly_name( friendly_name ),
+        m_isDefault( isDefault )
+    {}
 };
 
 typedef std::vector<AudioRenderDevice> AudioRenderDeviceArray;
 
 class AudioOutputStream : public Threadable
 {
-	CStringW					m_endpoint_id;				// Device endpoint ID
-	WAVEFORMATEX          		m_format;
+    CStringW					m_endpoint_id;				// Device endpoint ID
+    WAVEFORMATEX          		m_format;
 
     UINT32						m_bufferFrameCount;
     IMMDeviceEnumerator *		m_pEnumerator;
@@ -60,28 +60,28 @@ class AudioOutputStream : public Threadable
     IAudioRenderClient *		m_pRenderClient;
     WAVEFORMATEX *				m_pwfx;
 
-	CMutex						m_buffer_mutex;
+    CMutex						m_buffer_mutex;
     CEvent                      m_play_event;
     CEvent                      m_play_wait;
     AudioFrameBuffer            m_ring_buffer;
     bool                        m_playing;
     bool                        m_paused;
 
-	UINT run(void);
+    UINT run(void);
 
 public:
-	AudioOutputStream( LPCWSTR endpoint_id=NULL );
-	virtual ~AudioOutputStream(void);
+    AudioOutputStream( LPCWSTR endpoint_id=NULL );
+    virtual ~AudioOutputStream(void);
 
     bool addSamples( UINT32 frames, UINT32 channels, UINT32 sample_rate, LPBYTE pData );
 
-	WAVEFORMATEX getFormat( ) const {
-		return m_format;
-	}
+    WAVEFORMATEX getFormat( ) const {
+        return m_format;
+    }
 
-	unsigned getSamplesPerSecond() const {
-		return m_format.nSamplesPerSec;
-	}
+    unsigned getSamplesPerSecond() const {
+        return m_format.nSamplesPerSec;
+    }
 
     UINT getCachedSamples(void) const {
         return m_ring_buffer.size();
@@ -90,7 +90,7 @@ public:
     void setPaused( bool paused ) {
         if ( m_paused != paused ) {
             m_paused = paused;
-	        if ( m_paused )
+            if ( m_paused )
                 m_pAudioClient->Stop();
             else
                 m_pAudioClient->Start();
@@ -107,21 +107,21 @@ public:
 
     void cancel(void);
 
-	virtual HRESULT openAudioStream( WAVEFORMATEX* format );
-	virtual HRESULT closeAudioStream();
+    virtual HRESULT openAudioStream( WAVEFORMATEX* format );
+    virtual HRESULT closeAudioStream();
 
-	static void collectAudioRenderDevices();
-	static AudioRenderDeviceArray audioRenderDevices;
+    static void collectAudioRenderDevices();
+    static AudioRenderDeviceArray audioRenderDevices;
 
-	static AudioOutputStream* createAudioStream( LPCSTR render_device=NULL );
-	static void releaseAudioStream( AudioOutputStream* audio_stream );
+    static AudioOutputStream* createAudioStream( LPCSTR render_device=NULL );
+    static void releaseAudioStream( AudioOutputStream* audio_stream );
 
 private:
-	HRESULT releaseResources();
+    HRESULT releaseResources();
 
-	HRESULT playAudioStream();
+    HRESULT playAudioStream();
     UINT32 fillBuffer( UINT32 numFramesAvailable, LPBYTE pData );
 
-	LPCSTR getEndpointDeviceName( LPCWSTR endpoint_id );
+    LPCSTR getEndpointDeviceName( LPCWSTR endpoint_id );
 };
 

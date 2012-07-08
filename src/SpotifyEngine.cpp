@@ -26,7 +26,7 @@ MA 02111-1307, USA.
 #define DEBUG_SPOTIFY   false
 
 #define SPOTIFY_API_CALLED( fmt, ... )		\
-	if ( DEBUG_SPOTIFY ) { printf( fmt, __VA_ARGS__ ); printf( "\n" ); }
+    if ( DEBUG_SPOTIFY ) { printf( fmt, __VA_ARGS__ ); printf( "\n" ); }
 
 // ----------------------------------------------------------------------------
 //
@@ -46,24 +46,24 @@ SpotifyEngine::SpotifyEngine(void) :
 
     inititializeSpotifyCallbacks();
 
-	spconfig.api_version = SPOTIFY_API_VERSION;
-	spconfig.cache_location = "/tmp";
-	spconfig.settings_location = "/tmp";
-	spconfig.application_key = g_appkey;
-	spconfig.application_key_size = g_appkey_size;
-	spconfig.user_agent = "DMXStudio-spotify-controller";
+    spconfig.api_version = SPOTIFY_API_VERSION;
+    spconfig.cache_location = "/tmp";
+    spconfig.settings_location = "/tmp";
+    spconfig.application_key = g_appkey;
+    spconfig.application_key_size = g_appkey_size;
+    spconfig.user_agent = "DMXStudio-spotify-controller";
 
     spconfig.callbacks = &session_callbacks;
-	spconfig.userdata = this;
-	spconfig.compress_playlists = false;
-	spconfig.dont_save_metadata_for_playlists = false;
-	spconfig.initially_unload_playlists = false;
+    spconfig.userdata = this;
+    spconfig.compress_playlists = false;
+    spconfig.dont_save_metadata_for_playlists = false;
+    spconfig.initially_unload_playlists = false;
 
-	spconfig.proxy = NULL;
-	spconfig.proxy_username = NULL;
-	spconfig.proxy_password = NULL;
-	spconfig.tracefile = NULL;
-	spconfig.device_id = NULL;
+    spconfig.proxy = NULL;
+    spconfig.proxy_username = NULL;
+    spconfig.proxy_password = NULL;
+    spconfig.tracefile = NULL;
+    spconfig.device_id = NULL;
 }
 
 // ----------------------------------------------------------------------------
@@ -97,28 +97,28 @@ bool SpotifyEngine::connect( LPCSTR username, LPCSTR password, LPCSTR blob )
     sp_error err;
 
     if ( !m_spotify_session ) {                // Create a new Spoty session
-	    err = sp_session_create( &spconfig, &m_spotify_session);
-	    if ( SP_ERROR_OK != err ) {
+        err = sp_session_create( &spconfig, &m_spotify_session);
+        if ( SP_ERROR_OK != err ) {
             m_spotify_error.Format( "Unable to create session: %s", sp_error_message(err) );
-		    return false;
-	    }
+            return false;
+        }
     }
 
     m_login_state = LOGIN_WAIT;
 
-	err = sp_session_login( m_spotify_session, username, password, 1, blob );
-	if (SP_ERROR_OK != err) {
-		m_spotify_error.Format( "Unable to log in: %s", sp_error_message(err) );
-		return false;
-	}
+    err = sp_session_login( m_spotify_session, username, password, 1, blob );
+    if (SP_ERROR_OK != err) {
+        m_spotify_error.Format( "Unable to log in: %s", sp_error_message(err) );
+        return false;
+    }
 
     ULONG future = GetCurrentTime() + (60 * 1000);
 
     while ( getLoginState() == LOGIN_WAIT ) {
         int next_timeout = 0;
-		do {
-			sp_session_process_events( m_spotify_session, &next_timeout );
-		} while (next_timeout == 0);
+        do {
+            sp_session_process_events( m_spotify_session, &next_timeout );
+        } while (next_timeout == 0);
 
         if ( GetCurrentTime() > future ) {
             m_spotify_error = "Login timed-out";
@@ -171,9 +171,9 @@ bool SpotifyEngine::disconnect( void )
         sp_session_logout( m_spotify_session );
         while ( getLoginState() != NOT_LOGGED_IN ) {
             int next_timeout = 0;
-		    do {
-			    sp_session_process_events( m_spotify_session, &next_timeout );
-		    } while (next_timeout == 0);
+            do {
+                sp_session_process_events( m_spotify_session, &next_timeout );
+            } while (next_timeout == 0);
 
             if ( GetCurrentTime() > future )
                 break;
@@ -256,9 +256,9 @@ void SpotifyEngine::playTracks( sp_playlist* pl )
 
     int num_tracks = sp_playlist_num_tracks( pl );
 
-	for (int i=0; i < num_tracks; i++ ) {
+    for (int i=0; i < num_tracks; i++ ) {
         m_track_queue.push_back( sp_playlist_track( pl, i ) );
-	}
+    }
 
     sendCommand( CMD_NEXT_TRACK );
 }
@@ -271,9 +271,9 @@ void SpotifyEngine::queueTracks( sp_playlist* pl )
 
     int num_tracks = sp_playlist_num_tracks( pl );
 
-	for (int i=0; i < num_tracks; i++ ) {
+    for (int i=0; i < num_tracks; i++ ) {
         m_track_queue.push_back( sp_playlist_track( pl, i ) );
-	}
+    }
 
     sendCommand( CMD_CHECK_PLAYING );
 }
@@ -307,13 +307,13 @@ void SpotifyEngine::pauseTrack( bool pause )
 PlaylistArray SpotifyEngine::getPlaylists( void ) {
     PlaylistArray playlists;
 
-	sp_playlistcontainer *pc = sp_session_playlistcontainer( m_spotify_session );
+    sp_playlistcontainer *pc = sp_session_playlistcontainer( m_spotify_session );
 
-	for ( int i=0; i < sp_playlistcontainer_num_playlists(pc); i++ ) {
-		sp_playlist *pl = sp_playlistcontainer_playlist(pc, i);
+    for ( int i=0; i < sp_playlistcontainer_num_playlists(pc); i++ ) {
+        sp_playlist *pl = sp_playlistcontainer_playlist(pc, i);
         if ( sp_playlist_num_tracks( pl ) > 0 )
             playlists.push_back( pl );
-	}
+    }
 
     return playlists;
 }
@@ -325,9 +325,9 @@ TrackArray SpotifyEngine::getTracks( sp_playlist* pl ) {
 
     int num_tracks = sp_playlist_num_tracks( pl );
 
-	for (int i=0; i < num_tracks; i++ ) {
+    for (int i=0; i < num_tracks; i++ ) {
         tracks.push_back( sp_playlist_track( pl, i ) );
-	}
+    }
 
     return tracks;
 }
@@ -341,19 +341,19 @@ TrackArray SpotifyEngine::getTracks( sp_playlist* pl ) {
 //
 UINT SpotifyEngine::run()
 {
-	log_status( "Spotify engine started" );
+    log_status( "Spotify engine started" );
     
     int next_timeout = 0;
     ULONG wait_time = 0L;
 
-	while ( isRunning() ) {
+    while ( isRunning() ) {
         try {
             while ( ::WaitForSingleObject( m_spotify_notify, 100 ) != WAIT_OBJECT_0 ) {
                 if ( m_current_track != NULL ) {
                     switch ( m_track_state ) {
                         case TRACK_STREAM_COMPLETE:
                             sp_session_player_unload( m_spotify_session );
-			                m_track_state = TRACK_PLAYING;
+                            m_track_state = TRACK_PLAYING;
                             break;
 
                         case TRACK_PLAYING:
@@ -364,7 +364,7 @@ UINT SpotifyEngine::run()
                                 _startTrack();
                             }
                             break;
-		            }
+                    }
                 }
 
                 if ( GetCurrentTime() > wait_time )
@@ -399,22 +399,22 @@ UINT SpotifyEngine::run()
             m_spotify_command = CMD_NONE;
 
             // Dispatch Spotify messages
-		    do {
-			    sp_session_process_events( m_spotify_session, &next_timeout );
-		    } while (next_timeout == 0);
+            do {
+                sp_session_process_events( m_spotify_session, &next_timeout );
+            } while (next_timeout == 0);
 
             if ( next_timeout != 0 )
                 wait_time = next_timeout + GetCurrentTime();
             else
                 wait_time = 0;
-	    }
+        }
         catch ( std::exception& ex ) {
             log( ex );
             m_spotify_error = ex.what();
         }
     }
 
-	log_status( "Spotify engine stopped" );
+    log_status( "Spotify engine stopped" );
 
     return 0;
 }
@@ -445,10 +445,10 @@ void SpotifyEngine::_startTrack( )
         m_track_queue.pop_front();
         m_track_played_queue.push_back( m_current_track );
 
-	    sp_session_player_load( m_spotify_session, m_current_track );
+        sp_session_player_load( m_spotify_session, m_current_track );
 
         if ( !m_paused )
-	        sp_session_player_play( m_spotify_session, true );
+            sp_session_player_play( m_spotify_session, true );
 
         m_track_state = TRACK_STREAM_PENDING;
         m_track_length_ms = sp_track_duration( m_current_track );
@@ -497,14 +497,14 @@ void SpotifyEngine::_pause( )
 //
 bool SpotifyEngine::_readCredentials( CString& username, CString& credentials )
 {
-	CString filename;
-	filename.Format( "%s\\DMXStudio\\SpotifyCredentials", getUserDocumentDirectory() );
+    CString filename;
+    filename.Format( "%s\\DMXStudio\\SpotifyCredentials", getUserDocumentDirectory() );
 
     username.Empty();
     credentials.Empty();
 
-	if ( GetFileAttributes( filename ) == INVALID_FILE_ATTRIBUTES )
-		return false;
+    if ( GetFileAttributes( filename ) == INVALID_FILE_ATTRIBUTES )
+        return false;
 
     FILE* hFile = _fsopen( filename, "rt", _SH_DENYWR );
     if ( hFile == NULL )
@@ -526,8 +526,8 @@ bool SpotifyEngine::_readCredentials( CString& username, CString& credentials )
 //
 void SpotifyEngine::_writeCredentials( LPCSTR username, LPCSTR credentials )
 {
-	CString filename;
-	filename.Format( "%s\\DMXStudio\\SpotifyCredentials", getUserDocumentDirectory() );
+    CString filename;
+    filename.Format( "%s\\DMXStudio\\SpotifyCredentials", getUserDocumentDirectory() );
 
     FILE* hFile = _fsopen( filename, "wt", _SH_DENYWR );
     fprintf( hFile, "%s %s", username, credentials );

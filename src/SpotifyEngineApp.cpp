@@ -37,7 +37,7 @@ CSpotifyEngineApp theApp;
 CSpotifyEngineApp::CSpotifyEngineApp() :
     m_hLog( NULL )
 {
-	CoInitializeEx( NULL, COINIT_APARTMENTTHREADED );
+    CoInitializeEx( NULL, COINIT_APARTMENTTHREADED );
 
     openLogFile( );
 
@@ -60,21 +60,21 @@ CSpotifyEngineApp::~CSpotifyEngineApp()
 //
 BOOL CSpotifyEngineApp::InitInstance()
 {
-	CWinApp::InitInstance();
+    CWinApp::InitInstance();
     
     AudioOutputStream::collectAudioRenderDevices();
 
-	return TRUE;
+    return TRUE;
 }
 
 // ----------------------------------------------------------------------------
 //
 CString getUserDocumentDirectory()
 {
-	char input_file[MAX_PATH]; 
-	HRESULT result = SHGetFolderPath(NULL, CSIDL_MYDOCUMENTS, NULL, SHGFP_TYPE_CURRENT, input_file); 
-	if ( result != S_OK )
-		throw StudioException( "Error %d finding document directory", result );
+    char input_file[MAX_PATH]; 
+    HRESULT result = SHGetFolderPath(NULL, CSIDL_MYDOCUMENTS, NULL, SHGFP_TYPE_CURRENT, input_file); 
+    if ( result != S_OK )
+        throw StudioException( "Error %d finding document directory", result );
     return CString( input_file );
 }
 
@@ -82,8 +82,8 @@ CString getUserDocumentDirectory()
 //
 void CSpotifyEngineApp::openLogFile( )
 {
-	CString filename;
-	filename.Format( "%s\\DMXStudio\\SpotifyMusicController.log", getUserDocumentDirectory() );
+    CString filename;
+    filename.Format( "%s\\DMXStudio\\SpotifyMusicController.log", getUserDocumentDirectory() );
 
     m_hLog = _fsopen( filename, "at", _SH_DENYWR );
     fputs( "\n", m_hLog );
@@ -103,44 +103,44 @@ void CSpotifyEngineApp::closeLogFile( )
 // ----------------------------------------------------------------------------
 //
 void log( std::exception& ex ) {
-	CString output;
-	output.Format( "EXCEPTION: %s", ex.what() );
+    CString output;
+    output.Format( "EXCEPTION: %s", ex.what() );
 
-	log( output );
+    log( output );
 }
 
 // ----------------------------------------------------------------------------
 //
 void log( StudioException& ex ) {
-	CString output;
+    CString output;
 
-	if ( strlen( ex.getFile() ) > 0 )
-		output.Format( "EXCEPTION: %s (%s:%ld)", ex.what(), ex.getFile(), ex.getLine() );
-	else
-		output.Format( "EXCEPTION: %s", ex.what() );
+    if ( strlen( ex.getFile() ) > 0 )
+        output.Format( "EXCEPTION: %s (%s:%ld)", ex.what(), ex.getFile(), ex.getLine() );
+    else
+        output.Format( "EXCEPTION: %s", ex.what() );
 
-	log( output );
+    log( output );
 }
 
 // ----------------------------------------------------------------------------
 //
 void log_status( const char *fmt, ... ) {
-	va_list list;
-	va_start( list, fmt );
+    va_list list;
+    va_start( list, fmt );
 
-	CString output( "STATUS: " );
-	output.AppendFormatV( fmt, list );
+    CString output( "STATUS: " );
+    output.AppendFormatV( fmt, list );
 
-	log( output );
+    log( output );
 
-	va_end( list );
+    va_end( list );
 }
 
 // ----------------------------------------------------------------------------
 //
 void log( const char *fmt, ... ) {
-	va_list list;
-	va_start( list, fmt );
+    va_list list;
+    va_start( list, fmt );
 
     if ( theApp.m_hLog ) {
         time_t rawtime;
@@ -152,15 +152,15 @@ void log( const char *fmt, ... ) {
 
         strftime( buffer, sizeof(buffer), "[%x %X] ", &timeinfo );
 
-	    CString output;
+        CString output;
         output = buffer;
-	    output.AppendFormatV( fmt, list );
-	    output.Append( "\n" );
+        output.AppendFormatV( fmt, list );
+        output.Append( "\n" );
 
         // fputs should be a single atomic operation (i.e. no log collisions)
         fputs( output, theApp.m_hLog );
         fflush( theApp.m_hLog );
     }
 
-	va_end( list );
+    va_end( list );
 }

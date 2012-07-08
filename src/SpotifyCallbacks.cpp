@@ -26,7 +26,7 @@ MA 02111-1307, USA.
 #define DEBUG_SPOTIFY   false
 
 #define SPOTIFY_API_CALLED( fmt, ... )		\
-	if ( DEBUG_SPOTIFY ) { printf( fmt, __VA_ARGS__ ); printf( "\n" ); }
+    if ( DEBUG_SPOTIFY ) { printf( fmt, __VA_ARGS__ ); printf( "\n" ); }
 
 // ----------------------------------------------------------------------------
 //
@@ -37,45 +37,45 @@ void SpotifyEngine::inititializeSpotifyCallbacks( void )
     memset( &pc_callbacks, 0, sizeof(sp_playlistcontainer_callbacks) );
 
     session_callbacks.logged_in = &ftor_logged_in;
-	session_callbacks.notify_main_thread = &ftor_notify_main_thread;
-	session_callbacks.metadata_updated = &ftor_metadata_updated;
-	session_callbacks.play_token_lost = &ftor_play_token_lost;
-	session_callbacks.log_message = &ftor_log_message;
-	session_callbacks.end_of_track = &ftor_end_of_track;
-	session_callbacks.logged_out = &ftor_logged_out;
-	session_callbacks.connection_error = NULL;
-	session_callbacks.message_to_user = &ftor_message_to_user;
-	session_callbacks.streaming_error = NULL;
-	session_callbacks.userinfo_updated = NULL;
-	session_callbacks.start_playback = &ftor_start_playback;
-	session_callbacks.stop_playback = &ftor_stop_playback;
-	session_callbacks.get_audio_buffer_stats = &ftor_get_audio_buffer_stats;
-	session_callbacks.offline_status_updated = &ftor_offline_status_updated;
-	session_callbacks.offline_error = &ftor_offline_error;
-	session_callbacks.credentials_blob_updated = &ftor_credentials_blob_updated;
-	session_callbacks.connectionstate_updated = NULL;
-	session_callbacks.scrobble_error = NULL;
-	session_callbacks.private_session_mode_changed = NULL;
-	session_callbacks.music_delivery = &ftor_music_delivery;
+    session_callbacks.notify_main_thread = &ftor_notify_main_thread;
+    session_callbacks.metadata_updated = &ftor_metadata_updated;
+    session_callbacks.play_token_lost = &ftor_play_token_lost;
+    session_callbacks.log_message = &ftor_log_message;
+    session_callbacks.end_of_track = &ftor_end_of_track;
+    session_callbacks.logged_out = &ftor_logged_out;
+    session_callbacks.connection_error = NULL;
+    session_callbacks.message_to_user = &ftor_message_to_user;
+    session_callbacks.streaming_error = NULL;
+    session_callbacks.userinfo_updated = NULL;
+    session_callbacks.start_playback = &ftor_start_playback;
+    session_callbacks.stop_playback = &ftor_stop_playback;
+    session_callbacks.get_audio_buffer_stats = &ftor_get_audio_buffer_stats;
+    session_callbacks.offline_status_updated = &ftor_offline_status_updated;
+    session_callbacks.offline_error = &ftor_offline_error;
+    session_callbacks.credentials_blob_updated = &ftor_credentials_blob_updated;
+    session_callbacks.connectionstate_updated = NULL;
+    session_callbacks.scrobble_error = NULL;
+    session_callbacks.private_session_mode_changed = NULL;
+    session_callbacks.music_delivery = &ftor_music_delivery;
 
-	pc_callbacks.playlist_added = &ftor_playlist_added;
-	pc_callbacks.playlist_removed = &ftor_playlist_removed;
-	pc_callbacks.playlist_moved = &ftor_playlist_moved;
-	pc_callbacks.container_loaded = &ftor_container_loaded;
+    pc_callbacks.playlist_added = &ftor_playlist_added;
+    pc_callbacks.playlist_removed = &ftor_playlist_removed;
+    pc_callbacks.playlist_moved = &ftor_playlist_moved;
+    pc_callbacks.container_loaded = &ftor_container_loaded;
 
-	pl_callbacks.tracks_added = &ftor_tracks_added;
-	pl_callbacks.tracks_removed = &ftor_tracks_removed;
-	pl_callbacks.tracks_moved = &ftor_tracks_moved;
-	pl_callbacks.playlist_renamed = &ftor_playlist_renamed;
-	pl_callbacks.playlist_state_changed = &ftor_playlist_state_changed;
-	pl_callbacks.playlist_update_in_progress = &ftor_playlist_update_in_progress;
-	pl_callbacks.playlist_metadata_updated = &ftor_playlist_metadata_updated;
-	pl_callbacks.track_created_changed = &ftor_track_created_changed;
-	pl_callbacks.track_seen_changed = &ftor_track_seen_changed;
-	pl_callbacks.description_changed = &ftor_description_changed;
-	pl_callbacks.image_changed = &ftor_image_changed;
-	pl_callbacks.track_message_changed = &ftor_track_message_changed;
-	pl_callbacks.subscribers_changed = &ftor_subscribers_changed;
+    pl_callbacks.tracks_added = &ftor_tracks_added;
+    pl_callbacks.tracks_removed = &ftor_tracks_removed;
+    pl_callbacks.tracks_moved = &ftor_tracks_moved;
+    pl_callbacks.playlist_renamed = &ftor_playlist_renamed;
+    pl_callbacks.playlist_state_changed = &ftor_playlist_state_changed;
+    pl_callbacks.playlist_update_in_progress = &ftor_playlist_update_in_progress;
+    pl_callbacks.playlist_metadata_updated = &ftor_playlist_metadata_updated;
+    pl_callbacks.track_created_changed = &ftor_track_created_changed;
+    pl_callbacks.track_seen_changed = &ftor_track_seen_changed;
+    pl_callbacks.description_changed = &ftor_description_changed;
+    pl_callbacks.image_changed = &ftor_image_changed;
+    pl_callbacks.track_message_changed = &ftor_track_message_changed;
+    pl_callbacks.subscribers_changed = &ftor_subscribers_changed;
 }
 
 // ----------------------------------------------------------------------------
@@ -129,9 +129,9 @@ void SpotifyEngine::end_of_track(sp_session *sess)
 {
     SPOTIFY_API_CALLED( "end_of_track" );
 
-	m_track_state = TRACK_STREAM_COMPLETE;
-	//g_notify_do = 1;
-	m_spotify_notify.SetEvent();
+    m_track_state = TRACK_STREAM_COMPLETE;
+    //g_notify_do = 1;
+    m_spotify_notify.SetEvent();
 }
 
 // ----------------------------------------------------------------------------
@@ -152,8 +152,8 @@ void SpotifyEngine::get_audio_buffer_stats(sp_session *session, sp_audio_buffer_
 int SpotifyEngine::music_delivery(sp_session *sess, const sp_audioformat *format,
                           const void *frames, int num_frames)
 {
-	if (num_frames == 0) {                      // Audio discontinuity
-		m_audio_out->cancel();
+    if (num_frames == 0) {                      // Audio discontinuity
+        m_audio_out->cancel();
         return 0; 
     }
 
@@ -162,8 +162,8 @@ int SpotifyEngine::music_delivery(sp_session *sess, const sp_audioformat *format
     // Fill buffer till it complains
     if ( !m_audio_out->addSamples( num_frames, format->channels, format->sample_rate, (LPBYTE)frames ) ) {
         SPOTIFY_API_CALLED( "music_delivery wait" );
-		return 0;
-	}
+        return 0;
+    }
 
     if ( m_track_state == TRACK_STREAM_PENDING ) {
         m_track_start_time = GetCurrentTime();
@@ -173,7 +173,7 @@ int SpotifyEngine::music_delivery(sp_session *sess, const sp_audioformat *format
 
     m_spotify_notify.SetEvent();
 
-	return num_frames;
+    return num_frames;
 }
 
 /**
@@ -188,27 +188,27 @@ void SpotifyEngine::notify_main_thread(sp_session *sess)
 {
     SPOTIFY_API_CALLED( "notify_main_thread" );
     
-	m_spotify_notify.SetEvent();
+    m_spotify_notify.SetEvent();
 }
 
 void SpotifyEngine::logged_in(sp_session *sess, sp_error error)
 {
     SPOTIFY_API_CALLED( "logged_in" );
 
-	if ( SP_ERROR_OK != error ) {
-		log_status( "Login failed: %s", sp_error_message(error) );
+    if ( SP_ERROR_OK != error ) {
+        log_status( "Login failed: %s", sp_error_message(error) );
         m_spotify_error = sp_error_message(error);
         m_login_state = LOGIN_FAILED;
         return;
-	}
+    }
 
-	sp_playlistcontainer *pc = sp_session_playlistcontainer(sess);
-   	sp_playlistcontainer_add_callbacks( pc, &pc_callbacks, this);
+    sp_playlistcontainer *pc = sp_session_playlistcontainer(sess);
+    sp_playlistcontainer_add_callbacks( pc, &pc_callbacks, this);
 
-	for (int i=0; i < sp_playlistcontainer_num_playlists(pc); ++i) {
-		sp_playlist *pl = sp_playlistcontainer_playlist(pc, i);
-		sp_playlist_add_callbacks( pl, &pl_callbacks, this );
-	}
+    for (int i=0; i < sp_playlistcontainer_num_playlists(pc); ++i) {
+        sp_playlist *pl = sp_playlistcontainer_playlist(pc, i);
+        sp_playlist_add_callbacks( pl, &pl_callbacks, this );
+    }
 
     m_login_state = LOGIN_SUCCESS;
 }

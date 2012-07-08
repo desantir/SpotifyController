@@ -85,7 +85,7 @@ class SpotifyEngine : public Threadable
     TrackQueue              m_track_played_queue;
     CMutex                  m_mutex;                    // Mutex used when controlling playing tracks
 
-	virtual UINT run();
+    virtual UINT run();
 
 public:
     SpotifyEngine(void);
@@ -192,7 +192,7 @@ private:
     void start_playback(sp_session *session);
     void stop_playback(sp_session *session);
     void logged_out(sp_session *session);
-	void get_audio_buffer_stats(sp_session *session, sp_audio_buffer_stats *stats);
+    void get_audio_buffer_stats(sp_session *session, sp_audio_buffer_stats *stats);
 
     void playlist_added(sp_playlistcontainer *pc, sp_playlist *playlist, int position, void *userdata);
     void playlist_removed(sp_playlistcontainer *pc, sp_playlist *playlist, int position, void *userdata);

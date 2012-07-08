@@ -32,7 +32,7 @@ const IID IID_IAudioRenderClient = __uuidof(IAudioRenderClient);
 AudioRenderDeviceArray AudioOutputStream::audioRenderDevices;
 
 #define AUDIO_OUTPUT_ASSERT( hr, ... ) \
-	if ( !SUCCEEDED(hr) ) { \
+    if ( !SUCCEEDED(hr) ) { \
         CString message( "Audio output stream " ); \
         message.AppendFormat( __VA_ARGS__ ); \
         message.AppendFormat( " (0x%lx)", hr ); \
@@ -43,56 +43,56 @@ AudioRenderDeviceArray AudioOutputStream::audioRenderDevices;
 //
 AudioOutputStream* AudioOutputStream::createAudioStream( LPCSTR render_device )
 {
-	AudioOutputStream* audio_stream;
+    AudioOutputStream* audio_stream;
 
-	LPCWSTR endpoint_id = NULL;
-	bool isDefault = ( render_device == NULL || strlen(render_device) == 0 || StrCmpI( render_device, "default" ) == 0 );
+    LPCWSTR endpoint_id = NULL;
+    bool isDefault = ( render_device == NULL || strlen(render_device) == 0 || StrCmpI( render_device, "default" ) == 0 );
 
-	for ( AudioRenderDeviceArray::iterator it=audioRenderDevices.begin();
-			it != audioRenderDevices.end(); it++ ) {
+    for ( AudioRenderDeviceArray::iterator it=audioRenderDevices.begin();
+            it != audioRenderDevices.end(); it++ ) {
 
-		if ( (isDefault && (*it).m_isDefault) ||
-				(!isDefault && _stricmp( render_device, (*it).m_friendly_name ) == 0) ) {
-			endpoint_id = (LPCWSTR)((*it).m_id);
-			break;
-		}
-	}
+        if ( (isDefault && (*it).m_isDefault) ||
+                (!isDefault && _stricmp( render_device, (*it).m_friendly_name ) == 0) ) {
+            endpoint_id = (LPCWSTR)((*it).m_id);
+            break;
+        }
+    }
 
-	STUDIO_ASSERT( endpoint_id != NULL, "Cannot start unknown audio render device [%s]", render_device );
+    STUDIO_ASSERT( endpoint_id != NULL, "Cannot start unknown audio render device [%s]", render_device );
 
-	audio_stream = new AudioOutputStream( endpoint_id );
+    audio_stream = new AudioOutputStream( endpoint_id );
 
-	return audio_stream;
+    return audio_stream;
 }
 
 // ----------------------------------------------------------------------------
 //
 void AudioOutputStream::releaseAudioStream( AudioOutputStream* audio_stream )
 {
-	if ( audio_stream ) {
-		audio_stream->closeAudioStream();
-		delete audio_stream;
-	}
+    if ( audio_stream ) {
+        audio_stream->closeAudioStream();
+        delete audio_stream;
+    }
 }
 
 // ----------------------------------------------------------------------------
 //
 AudioOutputStream::AudioOutputStream( LPCWSTR endpoint_id ) :
-	m_endpoint_id( endpoint_id ),
+    m_endpoint_id( endpoint_id ),
     m_pEnumerator( NULL ),
     m_pDevice( NULL ),
     m_pAudioClient( NULL ),
     m_pRenderClient( NULL ),
     m_pwfx( NULL )
 {
-	memset( &m_format, 0, sizeof(WAVEFORMAT) );
+    memset( &m_format, 0, sizeof(WAVEFORMAT) );
 }
 
 // ----------------------------------------------------------------------------
 //
 AudioOutputStream::~AudioOutputStream(void)
 {
-	closeAudioStream();
+    closeAudioStream();
 }
 
 //-----------------------------------------------------------
@@ -100,7 +100,7 @@ AudioOutputStream::~AudioOutputStream(void)
 HRESULT AudioOutputStream::openAudioStream( WAVEFORMATEX* format )
 {
     HRESULT hr;
-	REFERENCE_TIME hnsRequestedDuration = REFTIMES_PER_SEC;
+    REFERENCE_TIME hnsRequestedDuration = REFTIMES_PER_SEC;
     LPCSTR audio_render_device = getEndpointDeviceName( m_endpoint_id );
     
     memcpy( &m_format, format, sizeof(WAVEFORMATEX) );
@@ -109,21 +109,21 @@ HRESULT AudioOutputStream::openAudioStream( WAVEFORMATEX* format )
            CLSID_MMDeviceEnumerator, NULL,
            CLSCTX_ALL, IID_IMMDeviceEnumerator,
            (void**)&m_pEnumerator);
-	AUDIO_OUTPUT_ASSERT( hr, "Cannot create COM device enumerator instance" );
+    AUDIO_OUTPUT_ASSERT( hr, "Cannot create COM device enumerator instance" );
 
     hr = m_pEnumerator->GetDevice( m_endpoint_id, &m_pDevice );
-	AUDIO_OUTPUT_ASSERT( hr, "GetDevice %S failed", m_endpoint_id );
+    AUDIO_OUTPUT_ASSERT( hr, "GetDevice %S failed", m_endpoint_id );
 
     hr = m_pDevice->Activate(
                     IID_IAudioClient, CLSCTX_ALL,
                     NULL, (void**)&m_pAudioClient);
-	AUDIO_OUTPUT_ASSERT( hr, "Activate failed" );
+    AUDIO_OUTPUT_ASSERT( hr, "Activate failed" );
 
     hr = m_pAudioClient->GetMixFormat(&m_pwfx);                 // This is what the render device can do
-	AUDIO_OUTPUT_ASSERT( hr, "GetMixFormat failed" );
+    AUDIO_OUTPUT_ASSERT( hr, "GetMixFormat failed" );
 
-	log_status( "Audio output stream %s internal format [%d %d-bit channel(s) @ %dHz, format %X]", 
-		audio_render_device, m_pwfx->nChannels,  m_pwfx->wBitsPerSample, m_pwfx->nSamplesPerSec, m_pwfx->wFormatTag );
+    log_status( "Audio output stream %s internal format [%d %d-bit channel(s) @ %dHz, format %X]", 
+        audio_render_device, m_pwfx->nChannels,  m_pwfx->wBitsPerSample, m_pwfx->nSamplesPerSec, m_pwfx->wFormatTag );
 
     hr = m_pAudioClient->Initialize(
                          AUDCLNT_SHAREMODE_SHARED,
@@ -135,93 +135,93 @@ HRESULT AudioOutputStream::openAudioStream( WAVEFORMATEX* format )
 
     if ( AUDCLNT_E_UNSUPPORTED_FORMAT == hr ) {
         AUDIO_OUTPUT_ASSERT( hr, "%s does not support [%d %d-bit channel(s) @ %dHz, format %X]", 
-		                         audio_render_device, m_format.nChannels, m_format.wBitsPerSample, 
+                                 audio_render_device, m_format.nChannels, m_format.wBitsPerSample, 
                                  m_format.nSamplesPerSec, m_format.wFormatTag );
     }
-	AUDIO_OUTPUT_ASSERT( hr, "Initialize failed" );
+    AUDIO_OUTPUT_ASSERT( hr, "Initialize failed" );
 
     // Get the size of the allocated buffer.
     hr = m_pAudioClient->GetBufferSize( &m_bufferFrameCount );
-	AUDIO_OUTPUT_ASSERT( hr, "GetBufferSize failed" );
+    AUDIO_OUTPUT_ASSERT( hr, "GetBufferSize failed" );
 
     hr = m_pAudioClient->GetService(
                          IID_IAudioRenderClient,
                          (void**)&m_pRenderClient);
 
-	AUDIO_OUTPUT_ASSERT( hr, "GetService failed" );
+    AUDIO_OUTPUT_ASSERT( hr, "GetService failed" );
 
-	bool started = startThread();
+    bool started = startThread();
 
-	STUDIO_ASSERT( started, "Audio output stream cannot start thread" );
+    STUDIO_ASSERT( started, "Audio output stream cannot start thread" );
 
-	return 0;
+    return 0;
 }
 
 // ----------------------------------------------------------------------------
 //
 HRESULT AudioOutputStream::closeAudioStream()
 {
-	stopThread();
+    stopThread();
 
     if ( m_pwfx ) {
-		CoTaskMemFree(m_pwfx);
-		m_pwfx = NULL;
-	}
+        CoTaskMemFree(m_pwfx);
+        m_pwfx = NULL;
+    }
 
     SAFE_RELEASE(m_pEnumerator)
     SAFE_RELEASE(m_pDevice)
     SAFE_RELEASE(m_pAudioClient)
     SAFE_RELEASE(m_pRenderClient)
 
-	return 0;
+    return 0;
 }
 
 // ----------------------------------------------------------------------------
 //
 LPCSTR AudioOutputStream::getEndpointDeviceName( LPCWSTR endpoint_id )
 {
-	for ( AudioRenderDeviceArray::iterator it=audioRenderDevices.begin();
-			it != audioRenderDevices.end(); it++ ) {
-		if ( wcscmp( endpoint_id, (*it).m_id ) == 0 )
-			return (*it).m_friendly_name;
-	}
+    for ( AudioRenderDeviceArray::iterator it=audioRenderDevices.begin();
+            it != audioRenderDevices.end(); it++ ) {
+        if ( wcscmp( endpoint_id, (*it).m_id ) == 0 )
+            return (*it).m_friendly_name;
+    }
 
-	return "UNKNOWN";
+    return "UNKNOWN";
 }
 
 // ----------------------------------------------------------------------------
 //
 UINT AudioOutputStream::run(void) 
 {
-	LPCSTR audio_render_device = getEndpointDeviceName( m_endpoint_id );
+    LPCSTR audio_render_device = getEndpointDeviceName( m_endpoint_id );
 
-	log_status( "Audio stream started [%s, %d %d-bit channel(s) @ %dHz, format %X]", 
-		audio_render_device, m_format.nChannels, m_format.wBitsPerSample, m_format.nSamplesPerSec, m_format.wFormatTag );
+    log_status( "Audio stream started [%s, %d %d-bit channel(s) @ %dHz, format %X]", 
+        audio_render_device, m_format.nChannels, m_format.wBitsPerSample, m_format.nSamplesPerSec, m_format.wFormatTag );
 
-	try {
-		while ( isRunning() ) {
+    try {
+        while ( isRunning() ) {
             if ( m_ring_buffer.size() > 0 || ::WaitForSingleObject( m_play_event, 100 ) == WAIT_OBJECT_0 ) {
-			    playAudioStream( );
+                playAudioStream( );
                 m_play_event.ResetEvent();
             }
         }
-	}
-	catch ( std::exception& ex ) {
-		log( ex );
-		return -1;
-	}
+    }
+    catch ( std::exception& ex ) {
+        log( ex );
+        return -1;
+    }
 
-	log_status( "Audio stream stopped" );
+    log_status( "Audio stream stopped" );
 
-	return 0;
+    return 0;
 }
 
 // ----------------------------------------------------------------------------
 //
 HRESULT AudioOutputStream::playAudioStream( )
 {
-	HRESULT hr;
-   	REFERENCE_TIME hnsActualDuration;
+    HRESULT hr;
+    REFERENCE_TIME hnsActualDuration;
 
     // Calculate the actual duration of the allocated buffer.
     hnsActualDuration = (REFERENCE_TIME)((double)REFTIMES_PER_SEC *
@@ -268,16 +268,16 @@ HRESULT AudioOutputStream::playAudioStream( )
     }
     
     if ( !m_paused ) {
-	    hr = m_pAudioClient->Stop();
+        hr = m_pAudioClient->Stop();
         AUDIO_OUTPUT_ASSERT( hr, "Stop failed" );
     }
 
-	hr = m_pAudioClient->Reset();  // Reset stream's clock & buffers
+    hr = m_pAudioClient->Reset();  // Reset stream's clock & buffers
     AUDIO_OUTPUT_ASSERT( hr, "Reset failed" );
 
     m_paused = m_playing = false;
 
-	return hr;
+    return hr;
 }
 
 // ----------------------------------------------------------------------------
@@ -325,88 +325,88 @@ void AudioOutputStream::collectAudioRenderDevices( )
 {
     HRESULT hr;
     IMMDeviceEnumerator *pEnumerator = NULL;
-	IMMDeviceCollection *pDevices = NULL;
-	IMMDevice *pDevice = NULL;
-	IPropertyStore *pProperties = NULL;
-	LPWSTR pstrId = NULL;
-	LPWSTR pstrDefaultId = NULL;
-	UINT cDevices = 0;
+    IMMDeviceCollection *pDevices = NULL;
+    IMMDevice *pDevice = NULL;
+    IPropertyStore *pProperties = NULL;
+    LPWSTR pstrId = NULL;
+    LPWSTR pstrDefaultId = NULL;
+    UINT cDevices = 0;
 
-	audioRenderDevices.clear();
+    audioRenderDevices.clear();
 
-	try {
-		hr = CoCreateInstance(
-			   CLSID_MMDeviceEnumerator, NULL,
-			   CLSCTX_ALL, IID_IMMDeviceEnumerator,
-			   (void**)&pEnumerator);
-		AUDIO_OUTPUT_ASSERT( hr, "Cannot create COM device enumerator instance" );
+    try {
+        hr = CoCreateInstance(
+               CLSID_MMDeviceEnumerator, NULL,
+               CLSCTX_ALL, IID_IMMDeviceEnumerator,
+               (void**)&pEnumerator);
+        AUDIO_OUTPUT_ASSERT( hr, "Cannot create COM device enumerator instance" );
 
-		hr = pEnumerator->EnumAudioEndpoints( eRender, DEVICE_STATE_ACTIVE, &pDevices );
-		AUDIO_OUTPUT_ASSERT( hr, "Cannot enumerate audio devices" );
+        hr = pEnumerator->EnumAudioEndpoints( eRender, DEVICE_STATE_ACTIVE, &pDevices );
+        AUDIO_OUTPUT_ASSERT( hr, "Cannot enumerate audio devices" );
 
-		// Get the default audio endpoint (if we don't get one its not an error)
-		hr = pEnumerator->GetDefaultAudioEndpoint( eRender, eConsole, &pDevice );
-		if ( SUCCEEDED(hr) ) {
-			pDevice->GetId( &pstrDefaultId );
-			SAFE_RELEASE( pDevice );
-		}
+        // Get the default audio endpoint (if we don't get one its not an error)
+        hr = pEnumerator->GetDefaultAudioEndpoint( eRender, eConsole, &pDevice );
+        if ( SUCCEEDED(hr) ) {
+            pDevice->GetId( &pstrDefaultId );
+            SAFE_RELEASE( pDevice );
+        }
 
-		// Get count of audio capture devices
-		hr = pDevices->GetCount( &cDevices );
-		AUDIO_OUTPUT_ASSERT( hr, "Cannot get audio device count" );
+        // Get count of audio capture devices
+        hr = pDevices->GetCount( &cDevices );
+        AUDIO_OUTPUT_ASSERT( hr, "Cannot get audio device count" );
 
-		log_status( "Found %d audio capture devices", cDevices );
+        log_status( "Found %d audio capture devices", cDevices );
 
-		// Suck up the render device names and default
-		for ( UINT i=0; i < cDevices; i++ ) {
-			hr = pDevices->Item( i, &pDevice );
-			AUDIO_OUTPUT_ASSERT( hr, "Cannot get IMMDevice" );
+        // Suck up the render device names and default
+        for ( UINT i=0; i < cDevices; i++ ) {
+            hr = pDevices->Item( i, &pDevice );
+            AUDIO_OUTPUT_ASSERT( hr, "Cannot get IMMDevice" );
 
-			hr = pDevice->GetId( &pstrId );
-			AUDIO_OUTPUT_ASSERT( hr, "Cannot get IMMDevice Id" );
+            hr = pDevice->GetId( &pstrId );
+            AUDIO_OUTPUT_ASSERT( hr, "Cannot get IMMDevice Id" );
 
-			hr = pDevice->OpenPropertyStore( STGM_READ, &pProperties );
-			AUDIO_OUTPUT_ASSERT( hr, "Cannot open IMMDevice property store" );
+            hr = pDevice->OpenPropertyStore( STGM_READ, &pProperties );
+            AUDIO_OUTPUT_ASSERT( hr, "Cannot open IMMDevice property store" );
 
-			PROPVARIANT varName;
-			// Initialize container for property value.
-			PropVariantInit(&varName);
+            PROPVARIANT varName;
+            // Initialize container for property value.
+            PropVariantInit(&varName);
 
-			// Get the endpoint's friendly-name property.
-			hr = pProperties->GetValue( PKEY_Device_DeviceDesc , &varName);
-			AUDIO_OUTPUT_ASSERT( hr, "Cannot open IMMDevice name property" );
+            // Get the endpoint's friendly-name property.
+            hr = pProperties->GetValue( PKEY_Device_DeviceDesc , &varName);
+            AUDIO_OUTPUT_ASSERT( hr, "Cannot open IMMDevice name property" );
 
-			bool isDefault = pstrDefaultId != NULL && wcscmp( pstrId, pstrDefaultId ) == 0;
-			CW2A friendly_name( varName.pwszVal );
+            bool isDefault = pstrDefaultId != NULL && wcscmp( pstrId, pstrDefaultId ) == 0;
+            CW2A friendly_name( varName.pwszVal );
 
-			audioRenderDevices.push_back( AudioRenderDevice( pstrId, friendly_name.m_psz, isDefault) ); 
+            audioRenderDevices.push_back( AudioRenderDevice( pstrId, friendly_name.m_psz, isDefault) ); 
 
-			log_status( "Registering audio render device '%s'%s", 
-			        	friendly_name.m_psz, isDefault ? " [Default]" : "" );
+            log_status( "Registering audio render device '%s'%s", 
+                        friendly_name.m_psz, isDefault ? " [Default]" : "" );
 
-			CoTaskMemFree( pstrId );
-			pstrId = NULL;
+            CoTaskMemFree( pstrId );
+            pstrId = NULL;
 
-			PropVariantClear(&varName);
+            PropVariantClear(&varName);
 
-			SAFE_RELEASE( pProperties );
-			SAFE_RELEASE( pDevice );
-		}
+            SAFE_RELEASE( pProperties );
+            SAFE_RELEASE( pDevice );
+        }
 
-		SAFE_RELEASE( pDevices );
-		SAFE_RELEASE( pEnumerator );
+        SAFE_RELEASE( pDevices );
+        SAFE_RELEASE( pEnumerator );
 
-		CoTaskMemFree( pstrDefaultId );
-	}
-	catch ( ... ) {
-		CoTaskMemFree( pstrDefaultId );
-		CoTaskMemFree( pstrId );
+        CoTaskMemFree( pstrDefaultId );
+    }
+    catch ( ... ) {
+        CoTaskMemFree( pstrDefaultId );
+        CoTaskMemFree( pstrId );
 
-		SAFE_RELEASE( pProperties );
-		SAFE_RELEASE( pDevice );
-		SAFE_RELEASE( pDevices );
-		SAFE_RELEASE( pEnumerator );
+        SAFE_RELEASE( pProperties );
+        SAFE_RELEASE( pDevice );
+        SAFE_RELEASE( pDevices );
+        SAFE_RELEASE( pEnumerator );
 
-		throw;
-	}
+        throw;
+    }
 }

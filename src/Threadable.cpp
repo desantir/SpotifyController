@@ -26,8 +26,8 @@ MA 02111-1307, USA.
 // ----------------------------------------------------------------------------
 //
 Threadable::Threadable(void) :
-	m_running( false ),
-	m_thread( NULL )
+    m_running( false ),
+    m_thread( NULL )
 {
 }
 
@@ -35,57 +35,57 @@ Threadable::Threadable(void) :
 //
 Threadable::~Threadable(void)
 {
-	if ( m_running )
-		stopThread();
+    if ( m_running )
+        stopThread();
 }
 
 // ----------------------------------------------------------------------------
 //
 bool Threadable::startThread( ) {
-	if ( m_running )
-		return false;
+    if ( m_running )
+        return false;
 
-	// Start thread
-	m_thread = AfxBeginThread( _run, this, THREAD_PRIORITY_NORMAL, 0, CREATE_SUSPENDED );
-	if ( !m_thread ) {
-		printf( "Thread failed to start\n" );
-		m_running = false;
-		return false;
-	}
+    // Start thread
+    m_thread = AfxBeginThread( _run, this, THREAD_PRIORITY_NORMAL, 0, CREATE_SUSPENDED );
+    if ( !m_thread ) {
+        printf( "Thread failed to start\n" );
+        m_running = false;
+        return false;
+    }
 
-	m_thread->m_bAutoDelete = false;
-	m_thread->ResumeThread();
+    m_thread->m_bAutoDelete = false;
+    m_thread->ResumeThread();
 
-	return true;
+    return true;
 }
 
 // ----------------------------------------------------------------------------
 //
 bool Threadable::stopThread() {
-	if ( !m_running || !m_thread )
-		return true;
+    if ( !m_running || !m_thread )
+        return true;
 
-	DWORD exit_code = 0;
-	if ( GetExitCodeThread( m_thread->m_hThread, &exit_code ) && exit_code != STILL_ACTIVE ) {
-		m_running = false;
-		printf( "Thread premature exit (code %lx)\n", exit_code );
-	}
-	else {
-		// Stop the thread
-		m_running = false;
+    DWORD exit_code = 0;
+    if ( GetExitCodeThread( m_thread->m_hThread, &exit_code ) && exit_code != STILL_ACTIVE ) {
+        m_running = false;
+        printf( "Thread premature exit (code %lx)\n", exit_code );
+    }
+    else {
+        // Stop the thread
+        m_running = false;
 
-		// Wait for thread to stop
-		DWORD status = ::WaitForSingleObject( m_thread->m_hThread, 5000 );
+        // Wait for thread to stop
+        DWORD status = ::WaitForSingleObject( m_thread->m_hThread, 5000 );
 
-		if ( status == WAIT_FAILED )
-			printf( "Thread failed to stop\n" );
-		else
-			delete m_thread;
-	}
+        if ( status == WAIT_FAILED )
+            printf( "Thread failed to stop\n" );
+        else
+            delete m_thread;
+    }
 
-	m_thread = NULL;
+    m_thread = NULL;
 
-	return true;
+    return true;
 }
 
 // ----------------------------------------------------------------------------
@@ -93,7 +93,7 @@ bool Threadable::stopThread() {
 //
 UINT __cdecl _run( LPVOID object )
 {
-	Threadable* t = reinterpret_cast<Threadable *>(object);
-	t->m_running = true;
-	return t->run();
+    Threadable* t = reinterpret_cast<Threadable *>(object);
+    t->m_running = true;
+    return t->run();
 }
