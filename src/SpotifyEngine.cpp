@@ -112,7 +112,21 @@ bool SpotifyEngine::connect( LPCSTR username, LPCSTR password, LPCSTR blob )
         return false;
     }
 
-    ULONG future = GetCurrentTime() + (60 * 1000);
+    // We appear to get a "successful" login callback immediately after the sp_session_login(), 
+    // then, eventually, a bad login. This wait is to help combat that odd behavior by sucking up
+    // both messages.  It is, obviously, highly timing dependant.
+
+    ULONG future = GetCurrentTime() + (2 * 1000);
+    while ( GetCurrentTime() < future && getLoginState() != LOGIN_FAILED ) {
+        int next_timeout = 0;
+        do {
+            sp_session_process_events( m_spotify_session, &next_timeout );
+        } while (next_timeout == 0);
+
+        Sleep( 100 );
+    }
+
+    future = GetCurrentTime() + (60 * 1000);
 
     while ( getLoginState() == LOGIN_WAIT ) {
         int next_timeout = 0;

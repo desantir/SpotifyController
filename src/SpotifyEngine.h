@@ -135,6 +135,10 @@ public:
         return m_track_length_ms;
     }
 
+    DWORD getTrackLength( sp_track* track ) const {
+        return sp_track_duration( track );
+    }
+
     DWORD getTrackRemainingTime() const {
         if ( m_current_track == NULL )
             return 0;

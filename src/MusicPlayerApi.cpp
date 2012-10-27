@@ -130,30 +130,6 @@ bool DMX_PLAYER_API GetTracks( DWORD playlist_id, UINT* num_tracks, DWORD* track
 
 // ----------------------------------------------------------------------------
 //
-bool DMX_PLAYER_API GetTrackName( DWORD track_id, LPSTR buffer, size_t buffer_length )
-{
-    AFX_MANAGE_STATE(AfxGetStaticModuleState());
-
-    LPCSTR title = sp_track_name( reinterpret_cast<sp_track *>(track_id) );
-    if ( title == NULL )
-        return false;
-
-    sp_artist *artist = sp_track_artist( reinterpret_cast<sp_track *>(track_id), 0 );
-    if ( artist == NULL )
-        return false;
-
-    CString label;
-    label.Format( "%s by %s", title, sp_artist_name( artist ) );
-
-    if ( (size_t)label.GetLength()+1 > buffer_length )
-        return false;
-
-    errno_t err = strncpy_s( buffer, buffer_length, label, label.GetLength() );
-    return err == 0;
-}
-
-// ----------------------------------------------------------------------------
-//
 bool DMX_PLAYER_API PlayTrack( DWORD track_id, bool queue )
 {
     AFX_MANAGE_STATE(AfxGetStaticModuleState());
@@ -248,6 +224,61 @@ bool DMX_PLAYER_API GetPlayingTrack( DWORD* track_id, DWORD* track_length,
 
 // ----------------------------------------------------------------------------
 //
+bool DMX_PLAYER_API GetTrackInfo( DWORD track_id, 
+                                  LPSTR track_name, size_t track_name_size,
+                                  LPSTR artist_name, size_t artist_name_size,
+                                  LPSTR album_name, size_t album_name_size,
+                                  DWORD* track_duration_ms, 
+                                  bool* starred )
+{
+    AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+    if ( !track_id )
+        return false;
+
+    if ( track_name ) {
+        LPCSTR title = sp_track_name( reinterpret_cast<sp_track *>(track_id) );
+        if ( title == NULL )
+            return false;
+        errno_t err = strncpy_s( track_name, track_name_size, title, strlen(title) );
+        if ( err != 0 )
+            return false;
+    }
+
+    if ( artist_name ) {
+        if ( sp_track_num_artists( reinterpret_cast<sp_track *>(track_id) ) == 0 )
+            *artist_name = '\0';
+        else {
+            sp_artist *artist = sp_track_artist( reinterpret_cast<sp_track *>(track_id), 0 );
+            if ( artist == NULL )
+                return false;
+            LPCSTR title = sp_artist_name( artist );
+            errno_t err = strncpy_s( artist_name, artist_name_size, title, strlen(title) );
+            if ( err != 0 )
+                return false;
+        }
+    }
+
+    if ( album_name ) {
+        sp_album *album = sp_track_album( reinterpret_cast<sp_track *>(track_id) );
+        if ( album == NULL )
+            return false;
+        LPCSTR title = sp_album_name( album );
+        errno_t err = strncpy_s( album_name, album_name_size, title, strlen(title) );
+        if ( err != 0 )
+            return false;
+    }
+
+    if ( track_duration_ms )
+        *track_duration_ms =  theApp.m_spotify.getTrackLength( reinterpret_cast<sp_track *>(track_id) );
+    if ( starred )
+        *starred = theApp.m_spotify.isTrackStarred( reinterpret_cast<sp_track *>(track_id) );
+
+    return true;
+}
+
+// ----------------------------------------------------------------------------
+//
 bool DMX_PLAYER_API IsTrackPaused( void )
 {
     AFX_MANAGE_STATE(AfxGetStaticModuleState());
@@ -271,6 +302,22 @@ bool DMX_PLAYER_API GetQueuedTracks( UINT* num_tracks, DWORD* track_ids, size_t 
     AFX_MANAGE_STATE(AfxGetStaticModuleState());
 
     TrackArray tracks = theApp.m_spotify.getQueuedTracks();
+
+    for ( size_t i=0; i < tracks.size() && i < track_ids_capacity; i++ )
+        track_ids[i] = (DWORD)tracks[i];
+
+    *num_tracks = std::min<size_t>( track_ids_capacity, tracks.size() );
+
+    return *num_tracks == tracks.size();
+}
+
+// ----------------------------------------------------------------------------
+//
+bool DMX_PLAYER_API GetPlayedTracks( UINT* num_tracks, DWORD* track_ids, size_t track_ids_capacity )
+{
+    AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+    TrackArray tracks = theApp.m_spotify.getPlayedTracks();
 
     for ( size_t i=0; i < tracks.size() && i < track_ids_capacity; i++ )
         track_ids[i] = (DWORD)tracks[i];

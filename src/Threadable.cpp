@@ -48,7 +48,7 @@ bool Threadable::startThread( ) {
     // Start thread
     m_thread = AfxBeginThread( _run, this, THREAD_PRIORITY_NORMAL, 0, CREATE_SUSPENDED );
     if ( !m_thread ) {
-        printf( "Thread failed to start\n" );
+        log( "Thread failed to start" );
         m_running = false;
         return false;
     }
@@ -68,7 +68,7 @@ bool Threadable::stopThread() {
     DWORD exit_code = 0;
     if ( GetExitCodeThread( m_thread->m_hThread, &exit_code ) && exit_code != STILL_ACTIVE ) {
         m_running = false;
-        printf( "Thread premature exit (code %lx)\n", exit_code );
+        log( "Thread premature exit (code %lx)", exit_code );
     }
     else {
         // Stop the thread
@@ -78,7 +78,7 @@ bool Threadable::stopThread() {
         DWORD status = ::WaitForSingleObject( m_thread->m_hThread, 5000 );
 
         if ( status == WAIT_FAILED )
-            printf( "Thread failed to stop\n" );
+            log( "Thread failed to stop" );
         else
             delete m_thread;
     }

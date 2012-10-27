@@ -36,7 +36,6 @@ bool DMX_PLAYER_API Signon( LPCSTR username, LPCSTR password );
 bool DMX_PLAYER_API GetPlaylists( UINT* num_lists, DWORD* playlist_ids, size_t playlist_ids_capacity );
 bool DMX_PLAYER_API GetPlaylistName( DWORD playlist_id, LPSTR buffer, size_t buffer_length );
 bool DMX_PLAYER_API GetTracks( DWORD playlist_id, UINT* num_tracks, DWORD* track_ids, size_t track_ids_capacity );
-bool DMX_PLAYER_API GetTrackName( DWORD track_id, LPSTR buffer, size_t buffer_length );
 bool DMX_PLAYER_API PlayTrack( DWORD track_id, bool queue );
 bool DMX_PLAYER_API PlayAllTracks( DWORD playlist_id, bool queue );
 bool DMX_PLAYER_API ForwardTrack( void );
@@ -47,8 +46,15 @@ bool DMX_PLAYER_API GetPlayingTrack( DWORD* track_id, DWORD* track_length, DWORD
 bool DMX_PLAYER_API IsTrackPaused( void );
 bool DMX_PLAYER_API IsLoggedIn( void );
 bool DMX_PLAYER_API GetQueuedTracks( UINT* num_tracks, DWORD* track_ids, size_t track_ids_capacity );
+bool DMX_PLAYER_API GetPlayedTracks( UINT* num_tracks, DWORD* track_ids, size_t track_ids_capacity );
 void DMX_PLAYER_API GetLastPlayerError( LPSTR buffer, size_t buffer_length );
 bool DMX_PLAYER_API WaitOnTrackEvent( DWORD wait_ms, DWORD* track_id, bool* paused );
+bool DMX_PLAYER_API GetTrackInfo( DWORD track_id, 
+                                  LPSTR track_name, size_t track_name_size,
+                                  LPSTR artist_name, size_t artist_name_size,
+                                  LPSTR album_name, size_t album_name_size,
+                                  DWORD* track_duration_ms, 
+                                  bool* starred );
 
 };
 
