@@ -211,6 +211,7 @@ void SpotifyEngine::logged_in(sp_session *sess, sp_error error)
     }
 
     m_login_state = LOGIN_SUCCESS;
+    m_spotify_error = "";
 }
 
 // ----------------------------------------------------------------------------
