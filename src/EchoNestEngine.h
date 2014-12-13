@@ -1,5 +1,5 @@
 /* 
-Copyright (C) 2011,2012 Robert DeSantis
+Copyright (C) 2014 Robert DeSantis
 hopluvr at gmail dot com
 
 This file is part of DMX Studio.
@@ -23,36 +23,20 @@ MA 02111-1307, USA.
 #pragma once
 
 #include "stdafx.h"
-#include "resource.h"		// main symbols
-#include "SpotifyEngine.h"
-#include "EchoNestEngine.h"
+#include "MusicPlayerApi.h"
 
-class CSpotifyEngineApp : public CWinApp
+class EchoNestEngine
 {
+
 public:
-    SpotifyEngine   m_spotify;
-    EchoNestEngine  m_echonest;
+    EchoNestEngine();
+    ~EchoNestEngine();
 
-    FILE*           m_hLog;
+    bool getTrackAudioInfo( LPCSTR spotify_track_link, AudioInfo* audio_info );
+    bool lookupTrackAudioInfo( LPCSTR track_name, LPCSTR artist_name, AudioInfo*audio_info );
 
-    CSpotifyEngineApp();
-    ~CSpotifyEngineApp();
-
-    void openLogFile( );
-    void closeLogFile( );
-
-// Overrides
-public:
-    virtual BOOL InitInstance();
-
-    DECLARE_MESSAGE_MAP()
+private:
+    bool httpGet( LPCTSTR pszServerName, LPCTSTR pszFileName, CString& json_data );
+    CString encodeString( LPCSTR source );
+    bool fetchSongData( LPCSTR echonest_url, AudioInfo*audio_info );
 };
-
-extern void log( std::exception& ex );
-extern void log( StudioException& ex );
-extern void log( const char *fmt, ... );
-extern void log_status( const char *fmt, ... );
-
-extern CString getUserDocumentDirectory( void );
-
-extern CSpotifyEngineApp theApp;

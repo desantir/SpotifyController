@@ -1,5 +1,5 @@
 /* 
-Copyright (C) 2011,2012 Robert DeSantis
+Copyright (C) 2011-14 Robert DeSantis
 hopluvr at gmail dot com
 
 This file is part of DMX Studio.
@@ -39,7 +39,9 @@ SpotifyEngine::SpotifyEngine(void) :
     m_paused( false ),
     m_audio_out( NULL ),
     m_track_length_ms( 0 ),
-    m_track_start_time( 0 )
+    m_track_start_time( 0 ),
+    m_cache( false ),
+    m_cached_track( NULL )
     // m_track_event( 0, 0, ENGINE_TRACK_EVENT_NAME, NULL )
 {
     memset( &spconfig, 0, sizeof(sp_session_config) );
@@ -70,6 +72,8 @@ SpotifyEngine::SpotifyEngine(void) :
 //
 SpotifyEngine::~SpotifyEngine(void)
 {
+    clearCachedTrack();
+
     disconnect();
 }
 
@@ -226,8 +230,14 @@ void SpotifyEngine::previousTrack()
 {
     CSingleLock lock( &m_mutex, TRUE );
 
-    if ( m_track_played_queue.size() ) {
-        if ( m_current_track ) {                    // Skip over currently playing track (re-queue it)
+    if ( m_current_track && getTrackPlayTime() > 10*1000 ) {    // If current track > 10 seconds in, return to start
+        if ( m_track_played_queue.size() )
+            m_track_played_queue.pop_back();
+
+        playTrack( m_current_track ); 
+    }
+    else if ( m_track_played_queue.size() ) {
+        if ( m_current_track ) {                                // Skip over currently playing track (re-queue it)
             sp_track* track = m_track_played_queue.back();
             m_track_played_queue.pop_back();
             m_track_queue.push_front( track );
@@ -238,7 +248,7 @@ void SpotifyEngine::previousTrack()
             m_track_played_queue.pop_back();
             playTrack( track ); 
         }
-        else                                    // Current track was the only track in the played queue
+        else                                                    // Current track was the only track in the played queue
             stopTrack();
     }
 }
@@ -263,6 +273,31 @@ void SpotifyEngine::playTrack( sp_track* track )
 
 // ----------------------------------------------------------------------------
 //
+void SpotifyEngine::cacheTrack( sp_track* track )
+{
+    CSingleLock lock( &m_mutex, TRUE );
+    clearCachedTrack();
+    m_track_queue.push_front( track );
+    sendCommand( CMD_CACHE_TRACK );
+}
+
+// ----------------------------------------------------------------------------
+//
+bool SpotifyEngine::getCachedTrack( CachedTrack** cached_track ) 
+{
+    CSingleLock lock( &m_mutex, TRUE );
+
+    if ( m_cached_track && m_cached_track->ready ) {
+        *cached_track = m_cached_track;     // Transfering ownership
+        m_cached_track = NULL;
+        return true;
+    }
+
+    return false;
+}
+
+// ----------------------------------------------------------------------------
+//
 void SpotifyEngine::playTracks( sp_playlist* pl ) 
 {
     CSingleLock lock( &m_mutex, TRUE );
@@ -275,6 +310,23 @@ void SpotifyEngine::playTracks( sp_playlist* pl )
     }
 
     sendCommand( CMD_NEXT_TRACK );
+}
+
+// ----------------------------------------------------------------------------
+//
+sp_linktype SpotifyEngine::getTrackLink( sp_track* track, CString& spotify_link ) 
+{
+    sp_link* link = sp_link_create_from_track( track, 0 );
+    if ( link == NULL )
+        return SP_LINKTYPE_INVALID;
+
+    LPSTR spotify_link_ptr = spotify_link.GetBufferSetLength( 512 );
+    sp_link_as_string ( link,  spotify_link_ptr, 512 );
+
+    sp_linktype link_type = sp_link_type( link );
+    sp_link_release( link );
+
+    return link_type;
 }
 
 // ----------------------------------------------------------------------------
@@ -346,7 +398,6 @@ TrackArray SpotifyEngine::getTracks( sp_playlist* pl ) {
     return tracks;
 }
 
-
 // ----------------------------------------------------------------------------
 // ENGINE DISPATCHER AND HELPER METHODS
 // ----------------------------------------------------------------------------
@@ -371,7 +422,12 @@ UINT SpotifyEngine::run()
                             break;
 
                         case TRACK_PLAYING:
-                            if ( m_audio_out->getCachedSamples() == 0 ) {
+                            if ( m_cache || m_audio_out->getCachedSamples() == 0 ) {
+                                if ( m_cache ) {
+                                    m_cached_track->ready = true;
+                                    m_cache = false;
+                                }
+
                                 m_track_state = TRACK_ENDED;
                                 m_current_track = NULL;
                                 wait_time = 0;
@@ -394,6 +450,11 @@ UINT SpotifyEngine::run()
                 case CMD_NEXT_TRACK:
                     _stopTrack();
                     _startTrack();
+                    break;
+
+                case CMD_CACHE_TRACK:
+                    _stopTrack();
+                    _cacheTrack();
                     break;
 
                 case CMD_PAUSE_TRACK:
@@ -444,6 +505,7 @@ void SpotifyEngine::_stopTrack( )
         m_track_state = TRACK_ENDED;
         m_track_start_time = m_track_length_ms = 0L;
         m_pause_started = m_pause_accumulator = 0L;
+        m_cache = false;
 
         m_track_event.SetEvent();                            // Track moved to stopped state
     }
@@ -458,6 +520,7 @@ void SpotifyEngine::_startTrack( )
         m_current_track = m_track_queue.front();
         m_track_queue.pop_front();
         m_track_played_queue.push_back( m_current_track );
+        m_cache = false;
 
         sp_session_player_load( m_spotify_session, m_current_track );
 
@@ -469,6 +532,36 @@ void SpotifyEngine::_startTrack( )
         m_track_start_time = 0L;
         m_pause_started = m_pause_accumulator = 0L;
     }
+}
+
+// ----------------------------------------------------------------------------
+//
+void SpotifyEngine::_cacheTrack( )
+{
+    CSingleLock lock( &m_mutex, TRUE );
+    m_current_track = m_track_queue.front();
+    m_track_queue.pop_front();
+    m_cache = true;
+    clearCachedTrack();
+
+    m_track_state = TRACK_STREAM_PENDING;
+    m_track_length_ms = sp_track_duration( m_current_track );
+
+    ULONG data_size = 44100L*((m_track_length_ms)/1000L+2)*(sizeof(int16_t)*2);     // +2 seconds extra space
+
+    CachedTrack* cached_track = static_cast<CachedTrack*>( CoTaskMemAlloc( sizeof(CachedTrack) + data_size ) );
+    cached_track->ready = false;
+    cached_track->data_size = data_size;
+    // TODO making some assumptions here ...
+    cached_track->bit_rate = 44100;
+    cached_track->channels = 2;
+    cached_track->length_ms = m_track_length_ms;
+    cached_track->frames = 0;
+
+    m_cached_track = cached_track;
+
+    sp_session_player_load( m_spotify_session, m_current_track );
+    sp_session_player_play( m_spotify_session, true );
 }
 
 // ----------------------------------------------------------------------------
@@ -527,7 +620,7 @@ bool SpotifyEngine::_readCredentials( CString& username, CString& credentials )
     LPSTR lpUsername = username.GetBufferSetLength( 256 );
     LPSTR lpCredentials = credentials.GetBufferSetLength( 2048 );
 
-    size_t read = fscanf( hFile, "%s %s", lpUsername, lpCredentials );
+    size_t read = fscanf_s( hFile, "%s %s", lpUsername, 256, lpCredentials, 256 );
 
     username.ReleaseBuffer();
     credentials.ReleaseBuffer();

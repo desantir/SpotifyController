@@ -23,10 +23,9 @@ MA 02111-1307, USA.
 #include "stdafx.h"
 
 const uint8_t g_appkey[] = {
-
 	// PUT YOUR KEY HERE
-
 };
 
 const size_t g_appkey_size = sizeof(g_appkey);
 
+const char * g_EchoNestKey = "<YOUR API KEY>";

@@ -1,5 +1,5 @@
 /* 
-Copyright (C) 2011,2012 Robert DeSantis
+Copyright (C) 2011-14 Robert DeSantis
 hopluvr at gmail dot com
 
 This file is part of DMX Studio.
@@ -25,6 +25,7 @@ MA 02111-1307, USA.
 #include "stdafx.h"
 #include "Threadable.h"
 #include "AudioOutputStream.h"
+#include "MusicPlayerApi.h"
 
 #define ENGINE_TRACK_EVENT_NAME "DMXStudioEngineTrackEvent"
 
@@ -45,7 +46,8 @@ typedef enum {
     CMD_PAUSE_TRACK = 2,
     CMD_RESUME_TRACK = 3,
     CMD_NEXT_TRACK = 4,
-    CMD_CHECK_PLAYING = 5
+    CMD_CHECK_PLAYING = 5,
+    CMD_CACHE_TRACK = 6
 } SpotifyCommand;
 
 typedef enum {
@@ -75,6 +77,8 @@ class SpotifyEngine : public Threadable
     bool                    m_paused;
     DWORD                   m_pause_started;            // Time the current paused started
     DWORD                   m_pause_accumulator;        // Total accumulated pause time for current track
+    bool                    m_cache;                    // Caching track for analysis
+    CachedTrack             *m_cached_track;            // Cache buffer
 
     LoginState              m_login_state;
     CString                 m_spotify_error;
@@ -111,6 +115,8 @@ public:
         return m_spotify_error;
     }
 
+    sp_linktype getTrackLink( sp_track* track, CString& spotify_link );
+
     PlaylistArray getPlaylists( void );
     TrackArray getTracks( sp_playlist* pl );
     void playTrack( sp_track* track );
@@ -122,6 +128,8 @@ public:
     void playTracks( sp_playlist* pl );
     void queueTracks( sp_playlist* pl );
     void clearTrackQueue( );
+    void cacheTrack( sp_track* track );
+    bool getCachedTrack( CachedTrack** cached_track );
 
     bool isTrackStarred( sp_track* track ) {
         return sp_track_is_starred ( m_spotify_session, track ) != 0 ? true : false;
@@ -149,6 +157,16 @@ public:
         return ( end > now ) ? end-now : 0;
     }
 
+    DWORD getTrackPlayTime() const {
+        if ( m_current_track == NULL )
+            return 0;
+
+        DWORD now = m_paused ? m_pause_started : GetCurrentTime();
+        DWORD begin = m_track_start_time+m_pause_accumulator;
+
+        return ( now > begin ) ? now-begin : 0;
+    }
+
     sp_track* getPlayingTrack( ) {
         return m_current_track;
     }
@@ -163,15 +181,27 @@ public:
         return m_track_queue.size();
     }
 
+    size_t getNumPlayedTracks() const {
+        return m_track_played_queue.size();
+    }
+
     TrackArray getPlayedTracks() {
         TrackArray tracks;
         std::copy( m_track_played_queue.begin(), m_track_played_queue.end(), back_inserter(tracks) );
         return tracks;
     }
 
+    void clearCachedTrack() {
+        if ( m_cached_track ) {
+            CoTaskMemFree( m_cached_track );
+            m_cached_track = NULL;
+        }
+    }
+
 private:
     void _stopTrack(void);
     void _startTrack(void);
+    void _cacheTrack(void);
     void _resume(void);
     void _pause(void);
     bool _readCredentials( CString& username, CString& credentials );

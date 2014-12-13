@@ -31,7 +31,7 @@ class AudioFrameBuffer
 
     UINT    m_write_ptr;                            // New frames go here
     UINT    m_read_ptr;                             // Next frame to read is here
-    UINT    m_frame_count;                          // Number of framea available to read
+    UINT    m_frame_count;                          // Number of frames available to read
 
     BYTE*   m_buffer;                               // Frame data
 
@@ -51,6 +51,10 @@ public:
         free( m_buffer );
     }
 
+    inline UINT availableSpace() const {
+        return m_frame_capacity-m_frame_count;
+    }
+
     inline UINT size( void ) const {
         return m_frame_count;
     }
@@ -61,5 +65,13 @@ public:
 
     UINT read( UINT32 frames, LPBYTE pData );
     bool write( UINT32 frames, LPBYTE pData );
+
+    LPBYTE getFramePointer( UINT frame ) {
+        return &m_buffer[ frame * m_frame_size ];
+    }
+
+    inline UINT getFrameSize() const {
+        return m_frame_size;
+    }
 };
 

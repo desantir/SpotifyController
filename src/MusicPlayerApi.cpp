@@ -146,6 +146,28 @@ bool DMX_PLAYER_API PlayTrack( DWORD track_id, bool queue )
 
 // ----------------------------------------------------------------------------
 //
+bool DMX_PLAYER_API CacheTrack( DWORD track_id )
+{
+    AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+    sp_track* track = reinterpret_cast<sp_track *>(track_id);
+
+    theApp.m_spotify.cacheTrack( track );
+
+    return true;
+}
+
+// ----------------------------------------------------------------------------
+//
+bool DMX_PLAYER_API GetCachedTrack( CachedTrack** cached_track )
+{
+    AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+    return theApp.m_spotify.getCachedTrack( cached_track );
+}
+
+// ----------------------------------------------------------------------------
+//
 bool DMX_PLAYER_API PlayAllTracks( DWORD playlist_id, bool queue )
 {
     AFX_MANAGE_STATE(AfxGetStaticModuleState());
@@ -207,7 +229,9 @@ bool DMX_PLAYER_API PauseTrack( bool pause )
 // ----------------------------------------------------------------------------
 //
 bool DMX_PLAYER_API GetPlayingTrack( DWORD* track_id, DWORD* track_length, 
-                                     DWORD* time_remaining, UINT* queued_tracks )
+                                     DWORD* time_remaining, 
+                                     UINT* queued_tracks,
+                                     UINT* previous_tracks )
 {
     AFX_MANAGE_STATE(AfxGetStaticModuleState());
 
@@ -219,6 +243,9 @@ bool DMX_PLAYER_API GetPlayingTrack( DWORD* track_id, DWORD* track_length,
         *time_remaining = theApp.m_spotify.getTrackRemainingTime();
     if ( queued_tracks )
         *queued_tracks = theApp.m_spotify.getNumQueuedTracks();
+    if ( previous_tracks )
+        *previous_tracks = theApp.m_spotify.getNumPlayedTracks();
+
     return true;
 }
 
@@ -229,7 +256,8 @@ bool DMX_PLAYER_API GetTrackInfo( DWORD track_id,
                                   LPSTR artist_name, size_t artist_name_size,
                                   LPSTR album_name, size_t album_name_size,
                                   DWORD* track_duration_ms, 
-                                  bool* starred )
+                                  bool* starred,
+                                  LPSTR track_link, size_t track_link_size )
 {
     AFX_MANAGE_STATE(AfxGetStaticModuleState());
 
@@ -269,12 +297,53 @@ bool DMX_PLAYER_API GetTrackInfo( DWORD track_id,
             return false;
     }
 
+    if ( track_link ) {
+        CString spotify_link;
+
+        if ( !theApp.m_spotify.getTrackLink( reinterpret_cast<sp_track *>(track_id), spotify_link ) )
+            return false;
+
+        errno_t err = strncpy_s( track_link, track_link_size, spotify_link, spotify_link.GetLength() );
+        if ( err != 0 )
+            return false;
+    }
+
     if ( track_duration_ms )
         *track_duration_ms =  theApp.m_spotify.getTrackLength( reinterpret_cast<sp_track *>(track_id) );
     if ( starred )
         *starred = theApp.m_spotify.isTrackStarred( reinterpret_cast<sp_track *>(track_id) );
 
     return true;
+}
+
+// ----------------------------------------------------------------------------
+//
+bool DMX_PLAYER_API GetTrackAudioInfo( DWORD track_id, AudioInfo* audio_info ) 
+{
+    CString spotify_link;
+    memset( audio_info, 0, sizeof(AudioInfo) );
+
+    sp_linktype link_type = theApp.m_spotify.getTrackLink( reinterpret_cast<sp_track *>(track_id), spotify_link );
+
+    if ( link_type == SP_LINKTYPE_TRACK  )
+        return theApp.m_echonest.getTrackAudioInfo( spotify_link, audio_info );
+
+    if ( link_type == SP_LINKTYPE_LOCALTRACK ) {
+        LPCSTR track_name = sp_track_name( reinterpret_cast<sp_track *>(track_id) );
+        if ( track_name == NULL )
+            return false;
+
+        sp_artist *artist = sp_track_artist( reinterpret_cast<sp_track *>(track_id), 0 );
+        if ( artist == NULL )
+            return false;
+        LPCSTR artist_name = sp_artist_name( artist );
+        if ( artist_name == NULL )
+            return false;
+
+       return theApp.m_echonest.lookupTrackAudioInfo( track_name, artist_name, audio_info );
+    }
+
+    return false;
 }
 
 // ----------------------------------------------------------------------------

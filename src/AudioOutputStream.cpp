@@ -313,6 +313,7 @@ bool AudioOutputStream::addSamples( UINT32 frames, UINT32 channels, UINT32 sampl
     // TODO VERIFY SAMPLE FORMAT
 
     bool success = m_ring_buffer.write( frames, pData );
+
     if ( success ) 
         m_play_event.SetEvent();
     return success;
