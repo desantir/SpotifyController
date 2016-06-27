@@ -26,12 +26,27 @@ MA 02111-1307, USA.
 #include "Threadable.h"
 #include "AudioOutputStream.h"
 #include "MusicPlayerApi.h"
+#include "TrackAnalyzer.h"
 
 #define ENGINE_TRACK_EVENT_NAME "DMXStudioEngineTrackEvent"
 
+#define SPOTIFY_URI_PREFIX "spotify:track:"
+
+struct TrackQueueEntry {
+
+    sp_track*   m_track;
+    DWORD       m_seek_ms;
+
+    TrackQueueEntry( sp_track* track, DWORD seek_ms ) :
+        m_track( track ),
+        m_seek_ms( seek_ms )
+    {}
+};
+
 typedef std::vector<sp_playlist *> PlaylistArray;
 typedef std::vector<sp_track *> TrackArray;
-typedef std::list<sp_track *> TrackQueue;
+typedef std::list<TrackQueueEntry> TrackQueue;
+typedef std::map<CString, AnalyzeInfo *> TrackAnalysisCache;
 
 typedef enum {
     NOT_LOGGED_IN = 0,
@@ -46,8 +61,7 @@ typedef enum {
     CMD_PAUSE_TRACK = 2,
     CMD_RESUME_TRACK = 3,
     CMD_NEXT_TRACK = 4,
-    CMD_CHECK_PLAYING = 5,
-    CMD_CACHE_TRACK = 6
+    CMD_CHECK_PLAYING = 5
 } SpotifyCommand;
 
 typedef enum {
@@ -60,6 +74,9 @@ typedef enum {
 
 class SpotifyEngine : public Threadable
 {
+    WAVEFORMATEX            m_waveFormat;              // Current input audio format (from Spotify)
+    CString                 m_trackAnalysisContainer;   
+
     sp_session_config               spconfig;
     sp_session_callbacks            session_callbacks;  // The session callbacks
     sp_playlist_callbacks           pl_callbacks;       // The callbacks we are interested in for individual playlists
@@ -70,6 +87,9 @@ class SpotifyEngine : public Threadable
 
     TrackState              m_track_state;              // track state
     sp_track*               m_current_track;            // Handle to the current track
+    CString                 m_current_track_link;       // Link of curently playing track (empty if none)
+
+    ULONG                   m_track_seek_ms;
     ULONG                   m_track_length_ms;
     ULONG                   m_track_start_time;
     CEvent                  m_track_event;              // Event pulsed when a track is changed (start/stop/pause)
@@ -77,8 +97,6 @@ class SpotifyEngine : public Threadable
     bool                    m_paused;
     DWORD                   m_pause_started;            // Time the current paused started
     DWORD                   m_pause_accumulator;        // Total accumulated pause time for current track
-    bool                    m_cache;                    // Caching track for analysis
-    CachedTrack             *m_cached_track;            // Cache buffer
 
     LoginState              m_login_state;
     CString                 m_spotify_error;
@@ -88,6 +106,9 @@ class SpotifyEngine : public Threadable
     TrackQueue              m_track_queue;
     TrackQueue              m_track_played_queue;
     CMutex                  m_mutex;                    // Mutex used when controlling playing tracks
+
+    TrackAnalyzer*          m_analyzer;                 // Analyzer to use with the currently playing track
+    TrackAnalysisCache      m_track_analysis_cache;     // Cache of loaded and created track analysis
 
     virtual UINT run();
 
@@ -119,7 +140,7 @@ public:
 
     PlaylistArray getPlaylists( void );
     TrackArray getTracks( sp_playlist* pl );
-    void playTrack( sp_track* track );
+    void playTrack( sp_track* track, DWORD seek_ms );
     void nextTrack();
     void previousTrack();
     void queueTrack( sp_track* track );
@@ -128,8 +149,7 @@ public:
     void playTracks( sp_playlist* pl );
     void queueTracks( sp_playlist* pl );
     void clearTrackQueue( );
-    void cacheTrack( sp_track* track );
-    bool getCachedTrack( CachedTrack** cached_track );
+    AnalyzeInfo* getTrackAnalysis( LPCSTR track_link );
 
     bool isTrackStarred( sp_track* track ) {
         return sp_track_is_starred ( m_spotify_session, track ) != 0 ? true : false;
@@ -152,7 +172,7 @@ public:
             return 0;
 
         DWORD now = m_paused ? m_pause_started : GetCurrentTime();
-        DWORD end = m_track_start_time+m_track_length_ms+m_pause_accumulator;
+        DWORD end = m_track_start_time+(m_track_length_ms-m_track_seek_ms)+m_pause_accumulator;
 
         return ( end > now ) ? end-now : 0;
     }
@@ -171,9 +191,14 @@ public:
         return m_current_track;
     }
 
+    LPCSTR getPlayingTrackLink( ) {
+        return m_current_track_link;
+    }
+
     TrackArray getQueuedTracks() {
         TrackArray tracks;
-        std::copy( m_track_queue.begin(), m_track_queue.end(), back_inserter(tracks) );
+        for ( TrackQueueEntry entry : m_track_queue )
+            tracks.push_back( entry.m_track );
         return tracks;
     }
 
@@ -187,30 +212,56 @@ public:
 
     TrackArray getPlayedTracks() {
         TrackArray tracks;
-        std::copy( m_track_played_queue.begin(), m_track_played_queue.end(), back_inserter(tracks) );
+        for ( TrackQueueEntry entry : m_track_played_queue )
+            tracks.push_back( entry.m_track );
         return tracks;
     }
 
-    void clearCachedTrack() {
-        if ( m_cached_track ) {
-            CoTaskMemFree( m_cached_track );
-            m_cached_track = NULL;
-        }
+    inline bool isAnalyzing() const {
+        return m_analyzer != NULL;
+    }
+
+    sp_track* linkToTrack( LPCSTR track_link )
+    {
+        sp_link* link = sp_link_create_from_string ( track_link );
+        if ( link == NULL )
+            return NULL;
+
+        sp_track* track = sp_link_as_track ( link );
+        sp_link_release( link );
+        return track;
+    }
+
+    sp_playlist* linkToPlaylist( LPCSTR playlist_link )
+    {
+        sp_link* link = sp_link_create_from_string ( playlist_link );
+        if ( link == NULL )
+            return NULL;
+
+        sp_playlist* playlist = sp_playlist_create ( m_spotify_session, link );
+        sp_link_release( link );
+        return playlist;
     }
 
 private:
     void _stopTrack(void);
     void _startTrack(void);
-    void _cacheTrack(void);
     void _resume(void);
     void _pause(void);
     bool _readCredentials( CString& username, CString& credentials );
     void _writeCredentials( LPCSTR username, LPCSTR credentials );
+    void _processTrackAnalysis();
 
     void sendCommand( SpotifyCommand cmd ) {
         m_spotify_command = cmd;
         m_spotify_notify.SetEvent();
     }
+
+    void removeTrackAnalyzer(void);
+    bool haveTrackAnalysis( LPCSTR spotify_link );
+    bool saveTrackAnalysis( AnalyzeInfo* info );
+    AnalyzeInfo* loadTrackAnalysis( LPCSTR spotify_id );
+    void freeTrackAnalysisCache(void);
 
     void inititializeSpotifyCallbacks(void);
     void play_token_lost(sp_session *sess);
@@ -308,7 +359,6 @@ private:
         SpotifyEngine* st = (SpotifyEngine*)sp_session_userdata( session );
         st->get_audio_buffer_stats( session, stats );
     }
-
     static void SP_CALLCONV ftor_playlist_added(sp_playlistcontainer *pc, sp_playlist *playlist, int position, void *userdata) {
         SpotifyEngine* st = (SpotifyEngine*)userdata;
         st->playlist_added( pc, playlist, position, userdata );

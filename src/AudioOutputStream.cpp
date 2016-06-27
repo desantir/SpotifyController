@@ -83,7 +83,8 @@ AudioOutputStream::AudioOutputStream( LPCWSTR endpoint_id ) :
     m_pDevice( NULL ),
     m_pAudioClient( NULL ),
     m_pRenderClient( NULL ),
-    m_pwfx( NULL )
+    m_pwfx( NULL ),
+    Threadable( "AudioOutputStream" )
 {
     memset( &m_format, 0, sizeof(WAVEFORMAT) );
 }
@@ -127,7 +128,7 @@ HRESULT AudioOutputStream::openAudioStream( WAVEFORMATEX* format )
 
     hr = m_pAudioClient->Initialize(
                          AUDCLNT_SHAREMODE_SHARED,
-                         0,
+                         0x80000000,    // AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY,
                          hnsRequestedDuration,
                          0,
                          &m_format,
@@ -316,6 +317,7 @@ bool AudioOutputStream::addSamples( UINT32 frames, UINT32 channels, UINT32 sampl
 
     if ( success ) 
         m_play_event.SetEvent();
+
     return success;
 }
 

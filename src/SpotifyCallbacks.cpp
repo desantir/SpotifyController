@@ -129,6 +129,9 @@ void SpotifyEngine::end_of_track(sp_session *sess)
 {
     SPOTIFY_API_CALLED( "end_of_track" );
 
+    if ( isAnalyzing() )
+        m_analyzer->finishData();
+
     m_track_state = TRACK_STREAM_COMPLETE;
     //g_notify_do = 1;
     m_spotify_notify.SetEvent();
@@ -159,32 +162,14 @@ int SpotifyEngine::music_delivery(sp_session *sess, const sp_audioformat *format
 
     SPOTIFY_API_CALLED( "music_delivery frames=%d rate=%d", num_frames, format->sample_rate );
 
-    if ( !m_cache ) {
-        // Fill buffer till it complains
-        if ( !m_audio_out->addSamples( num_frames, format->channels, format->sample_rate, (LPBYTE)frames ) ) {
-            SPOTIFY_API_CALLED( "music_delivery wait" );
-            return 0;
-        }
+    // Fill buffer till it complains
+    if ( !m_audio_out->addSamples( num_frames, format->channels, format->sample_rate, (LPBYTE)frames ) ) {
+        SPOTIFY_API_CALLED( "music_delivery wait" );
+        return 0;
     }
-    else {
-        if ( !m_cached_track ) {
-            log_status( "No cache buffer" );
-            return num_frames;
-        }
 
-        ULONG delivery_size = num_frames * m_cached_track->getFrameSize();
-
-        if ( m_cached_track->frames*m_cached_track->getFrameSize() + delivery_size > m_cached_track->data_size ) {
-            log_status( "Cache buffer full - missing %d frames", num_frames );
-            printf( "Cache buffer full - missing %d frames\n", num_frames  );
-            return num_frames;
-        }
-
-        memcpy( &m_cached_track->data[m_cached_track->frames*m_cached_track->getFrameSize()], 
-                (LPBYTE)frames, 
-                delivery_size );
-
-        m_cached_track->frames += num_frames;
+    if ( isAnalyzing() ) {
+        m_analyzer->addData( num_frames, (LPBYTE)frames );
     }
 
     if ( m_track_state == TRACK_STREAM_PENDING ) {

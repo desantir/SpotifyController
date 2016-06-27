@@ -20,6 +20,7 @@ the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
 MA 02111-1307, USA.
 */
 
+
 #pragma once
 
 #include "stdafx.h"
@@ -30,6 +31,7 @@ class Threadable
 {
     friend UINT __cdecl _run( LPVOID object );
 
+    CString     m_name;                                 // Thread name
     bool		m_running;								// Thread is running
     CWinThread* m_thread;								// The thread
 
@@ -37,17 +39,19 @@ class Threadable
     Threadable& operator=(Threadable& rhs) { return *this; }
 
 public:
-    Threadable(void);
+    Threadable( LPCSTR name="" );
     virtual ~Threadable(void);
 
     bool startThread();
     bool stopThread();
 
-    inline bool isRunning() { 
+    inline bool isRunning() const { 
         return m_running;
     }
 
 protected:
     virtual UINT run() = 0;
-};
 
+private:
+    void setThreadName( void );
+};

@@ -25,6 +25,7 @@ MA 02111-1307, USA.
 #include "stdafx.h"
 #include "Threadable.h"
 #include "AudioFrameBuffer.h"
+#include "Audiosessiontypes.h"
 
 #define SAFE_RELEASE(punk)  \
               if ((punk) != NULL)  \
@@ -33,6 +34,11 @@ MA 02111-1307, USA.
 // REFERENCE_TIME time units per second and per millisecond
 #define REFTIMES_PER_SEC  10000000
 #define REFTIMES_PER_MILLISEC  10000
+
+typedef enum {
+    LEFT_CHANNEL = 0,
+    RIGHT_CHANNEL = 1
+} AudioChannel;
 
 struct AudioRenderDevice {
     CStringW	m_id;
@@ -117,8 +123,6 @@ public:
     static void releaseAudioStream( AudioOutputStream* audio_stream );
 
 private:
-    HRESULT releaseResources();
-
     HRESULT playAudioStream();
     UINT32 fillBuffer( UINT32 numFramesAvailable, LPBYTE pData );
 

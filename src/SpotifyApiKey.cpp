@@ -23,9 +23,11 @@ MA 02111-1307, USA.
 #include "stdafx.h"
 
 const uint8_t g_appkey[] = {
-	// PUT YOUR KEY HERE
+	// Put your APP key here
 };
 
 const size_t g_appkey_size = sizeof(g_appkey);
 
-const char * g_EchoNestKey = "<YOUR API KEY>";
+LPCSTR g_webapi_client_id = "<put your web api client id here>";
+LPCSTR g_webapi_client_secret = "<put your web id secret key here>";
+
