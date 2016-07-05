@@ -80,13 +80,14 @@ bool DMX_PLAYER_API WaitOnTrackEvent( DWORD wait_ms, LPSTR track_link, bool* pau
 
     if ( track_link ) {
         sp_track* track = theApp.m_spotify.getPlayingTrack();
-        if ( track == NULL )
-            return false;
+        if ( track != NULL ) {
+            sp_link * link = sp_link_create_from_track( track, 0 );
 
-        sp_link * link = sp_link_create_from_track( track, 0 );
-
-        sp_link_as_string ( link, track_link, MAX_LINK_SIZE );
-        sp_link_release( link );
+            sp_link_as_string ( link, track_link, MAX_LINK_SIZE );
+            sp_link_release( link );
+        }
+        else
+            *track_link = '\0';
     }
 
     if ( paused )

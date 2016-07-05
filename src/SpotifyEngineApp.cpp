@@ -87,7 +87,9 @@ void CSpotifyEngineApp::openLogFile( )
 
     if ( PathFileExists( filename ) ) {
         CString move_filename;
-        move_filename.Format( "%s\\DMXStudio\\SpotifyMusicController-%010ld.log", getUserDocumentDirectory(), GetCurrentTime() );
+        move_filename.Format( "%s\\DMXStudio\\Logs", getUserDocumentDirectory() );
+        CreateDirectory( move_filename, NULL );
+        move_filename.AppendFormat( "\\SpotifyMusicController-%010ld.log", GetCurrentTime() );
         MoveFile( filename, move_filename );
     }
 
