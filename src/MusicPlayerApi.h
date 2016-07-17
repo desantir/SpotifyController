@@ -1,5 +1,5 @@
 /* 
-Copyright (C) 2011-16 Robert DeSantis
+Copyright (C) 2011-2016 Robert DeSantis
 hopluvr at gmail dot com
 
 This file is part of DMX Studio.
@@ -45,6 +45,44 @@ struct AnalyzeInfo {
     uint16_t    data[1];                // Amplitude data (0 = 32767)
 };
 
+enum PlayerEvent {
+    TRACK_PLAY = 1,                     // Track play start
+    TRACK_STOP = 2,                     // Track stopped
+    TRACK_PAUSE = 3,                    // Track paused
+    TRACK_RESUME = 4,                   // Track resumed
+    TRACK_POSITION = 5,                 // Track position,
+    TRACK_QUEUES = 6,                   // Track queues changed
+    PLAYLIST_ADDED = 7,                 // New playlist added
+    PLAYLIST_REMOVED = 8,               // Playlist removed
+    PLAYLIST_CHANGED = 9                // Playlist changed (tracks, name, etc)
+};
+
+struct PlayerEventData {
+    PlayerEvent m_event;
+    ULONG       m_event_ms;
+    LPCSTR      m_link;
+    ULONG       m_played_size;
+    ULONG       m_queued_size;
+
+    PlayerEventData( PlayerEvent event, ULONG event_ms, LPCSTR track_link ) :
+        m_event( event ),
+        m_event_ms( event_ms ),
+        m_link( track_link )
+    {}
+
+    PlayerEventData( ULONG played_size, ULONG queued_size ) :
+        m_event( TRACK_QUEUES ),
+        m_played_size( played_size ),
+        m_queued_size( queued_size )
+    {}
+};
+
+class IPlayerEventCallback
+{
+public:
+    virtual HRESULT STDMETHODCALLTYPE notify( PlayerEventData* pNotify ) = 0;
+};
+
 struct AudioInfo {
     char        link[256];
     char        id[128];
@@ -70,6 +108,8 @@ DWORD DMX_PLAYER_API GetPlayerApiVersion( void );
 void DMX_PLAYER_API GetPlayerName( LPSTR buffer, size_t buffer_length );
 bool DMX_PLAYER_API Connect( void );
 bool DMX_PLAYER_API Disconnect( void );
+bool DMX_PLAYER_API RegisterEventListener( IPlayerEventCallback* listener );
+bool DMX_PLAYER_API UnregisterEventListener( IPlayerEventCallback* listener );
 bool DMX_PLAYER_API Signon( LPCSTR username, LPCSTR password );
 bool DMX_PLAYER_API GetPlaylists( UINT* num_lists, LPSTR playlist_links, size_t buffer_length );
 bool DMX_PLAYER_API GetPlaylistName( LPCSTR playlist_link, LPSTR buffer, size_t buffer_length );

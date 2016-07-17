@@ -168,17 +168,17 @@ int SpotifyEngine::music_delivery(sp_session *sess, const sp_audioformat *format
         return 0;
     }
 
-    if ( isAnalyzing() ) {
-        m_analyzer->addData( num_frames, (LPBYTE)frames );
-    }
-
     if ( m_track_state == TRACK_STREAM_PENDING ) {
-        m_track_start_time = GetCurrentTime();
         m_track_state = TRACK_STREAMING;
-        m_track_event.SetEvent();
+
+        m_track_timer.start( m_track_length_ms, m_track_seek_ms, m_current_track_link );
     }
 
     m_spotify_notify.SetEvent();
+
+    if ( isAnalyzing() ) {
+        m_analyzer->addData( num_frames, (LPBYTE)frames );
+    }
 
     return num_frames;
 }
@@ -271,6 +271,8 @@ void SpotifyEngine::playlist_added(sp_playlistcontainer *pc, sp_playlist *playli
     SPOTIFY_API_CALLED( "playlist_added @%d named %s", position, name );
 
     sp_playlist_add_callbacks( playlist, &pl_callbacks, NULL);
+
+    sendPlaylistEvent( PlayerEvent::PLAYLIST_ADDED, playlist );
 }
 
 // ----------------------------------------------------------------------------
@@ -278,6 +280,8 @@ void SpotifyEngine::playlist_added(sp_playlistcontainer *pc, sp_playlist *playli
 void SpotifyEngine::playlist_removed(sp_playlistcontainer *pc, sp_playlist *playlist, int position, void *userdata)
 {
     SPOTIFY_API_CALLED( "playlist_removed" );
+
+    sendPlaylistEvent( PlayerEvent::PLAYLIST_REMOVED, playlist );
 }
 
 void SpotifyEngine::playlist_moved(sp_playlistcontainer *pc, sp_playlist *playlist, int position, int new_position, void *userdata)
@@ -300,6 +304,8 @@ void SpotifyEngine::tracks_added(sp_playlist *pl, sp_track * const *tracks, int 
     LPCSTR tr_name = (num_tracks > 0 ) ? sp_track_name( tracks[0] ) : "NONE";
 
     SPOTIFY_API_CALLED( "%d tracks_added to %s: %s", num_tracks, pl_name, tr_name );
+
+    sendPlaylistEvent( PlayerEvent::PLAYLIST_CHANGED, pl );
 }
 
 // ----------------------------------------------------------------------------
@@ -309,6 +315,8 @@ void SpotifyEngine::tracks_removed(sp_playlist *pl, const int *tracks, int num_t
     LPCSTR pl_name = sp_playlist_name( pl );
 
     SPOTIFY_API_CALLED( "%d tracks_removed from %s", num_tracks, pl_name );
+
+    sendPlaylistEvent( PlayerEvent::PLAYLIST_CHANGED, pl );
 }
 
 // ----------------------------------------------------------------------------
@@ -327,6 +335,8 @@ void SpotifyEngine::playlist_renamed(sp_playlist *pl, void *userdata)
     LPCSTR pl_name = sp_playlist_name( pl );
 
     SPOTIFY_API_CALLED( "playlist_renamed %s", pl_name );
+
+    sendPlaylistEvent( PlayerEvent::PLAYLIST_CHANGED, pl );
 }
 
 // ----------------------------------------------------------------------------
@@ -336,6 +346,8 @@ void SpotifyEngine::playlist_state_changed(sp_playlist *pl, void *userdata)
     LPCSTR pl_name = sp_playlist_name( pl );
 
     SPOTIFY_API_CALLED( "playlist_state_changed %s", pl_name );
+
+    sendPlaylistEvent( PlayerEvent::PLAYLIST_CHANGED, pl );
 }
 
 // ----------------------------------------------------------------------------

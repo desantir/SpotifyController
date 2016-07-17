@@ -1,5 +1,5 @@
 /* 
-Copyright (C) 2011-14 Robert DeSantis
+Copyright (C) 2011-2016 Robert DeSantis
 hopluvr at gmail dot com
 
 This file is part of DMX Studio.
@@ -27,6 +27,7 @@ MA 02111-1307, USA.
 #include "AudioOutputStream.h"
 #include "MusicPlayerApi.h"
 #include "TrackAnalyzer.h"
+#include "TrackTimer.h"
 
 #define ENGINE_TRACK_EVENT_NAME "DMXStudioEngineTrackEvent"
 
@@ -72,6 +73,8 @@ typedef enum {
     TRACK_ENDED
 } TrackState;
 
+typedef std::vector<IPlayerEventCallback *> EventListeners;
+
 class SpotifyEngine : public Threadable
 {
     WAVEFORMATEX            m_waveFormat;              // Current input audio format (from Spotify)
@@ -89,14 +92,10 @@ class SpotifyEngine : public Threadable
     sp_track*               m_current_track;            // Handle to the current track
     CString                 m_current_track_link;       // Link of curently playing track (empty if none)
 
+    TrackTimer              m_track_timer;              // Marks time for the current track
     ULONG                   m_track_seek_ms;
     ULONG                   m_track_length_ms;
-    ULONG                   m_track_start_time;
     CEvent                  m_track_event;              // Event pulsed when a track is changed (start/stop/pause)
-
-    bool                    m_paused;
-    DWORD                   m_pause_started;            // Time the current paused started
-    DWORD                   m_pause_accumulator;        // Total accumulated pause time for current track
 
     LoginState              m_login_state;
     CString                 m_spotify_error;
@@ -105,10 +104,13 @@ class SpotifyEngine : public Threadable
     SpotifyCommand          m_spotify_command;          // Next command from the UI
     TrackQueue              m_track_queue;
     TrackQueue              m_track_played_queue;
-    CMutex                  m_mutex;                    // Mutex used when controlling playing tracks
+    CCriticalSection        m_mutex;                    // Mutex used when controlling playing tracks
 
     TrackAnalyzer*          m_analyzer;                 // Analyzer to use with the currently playing track
     TrackAnalysisCache      m_track_analysis_cache;     // Cache of loaded and created track analysis
+
+    CCriticalSection        m_event_lock;               // Event handling mutex
+    EventListeners          m_event_listeners;          // Track event listeners
 
     virtual UINT run();
 
@@ -123,6 +125,8 @@ public:
     bool connect( LPCSTR username, LPCSTR password, LPCSTR credentials_blob=NULL );
     bool connect( void );
     bool disconnect( void );
+    bool registerEventListener( IPlayerEventCallback* listener );
+    bool unregisterEventListener( IPlayerEventCallback* listener );
 
     inline CEvent& getTrackEvent() {
         return m_track_event;
@@ -137,6 +141,10 @@ public:
     }
 
     sp_linktype getTrackLink( sp_track* track, CString& spotify_link );
+
+    LPCSTR getCurrentTrack() const {
+        return (LPCSTR)m_current_track_link;
+    }
 
     PlaylistArray getPlaylists( void );
     TrackArray getTracks( sp_playlist* pl );
@@ -155,11 +163,11 @@ public:
         return sp_track_is_starred ( m_spotify_session, track ) != 0 ? true : false;
     }
 
-    bool isTrackPaused( ) const {
-        return m_current_track != NULL && m_paused;
+    bool isTrackPaused( ) {
+        return m_current_track != NULL && m_track_timer.isPaused();
     }
 
-    DWORD getTrackLength() const {
+    inline DWORD getTrackLength() const {
         return m_track_length_ms;
     }
 
@@ -167,24 +175,25 @@ public:
         return sp_track_duration( track );
     }
 
-    DWORD getTrackRemainingTime() const {
+    inline DWORD getTrackRemainingTime() const  {
         if ( m_current_track == NULL )
             return 0;
 
-        DWORD now = m_paused ? m_pause_started : GetCurrentTime();
-        DWORD end = m_track_start_time+(m_track_length_ms-m_track_seek_ms)+m_pause_accumulator;
-
-        return ( end > now ) ? end-now : 0;
+        return m_track_timer.getTrackRemaining();
     }
 
-    DWORD getTrackPlayTime() const {
+    inline DWORD getTrackPosition() const  {
         if ( m_current_track == NULL )
             return 0;
 
-        DWORD now = m_paused ? m_pause_started : GetCurrentTime();
-        DWORD begin = m_track_start_time+m_pause_accumulator;
+        return m_track_timer.getTrackPosition();
+    }
 
-        return ( now > begin ) ? now-begin : 0;
+    inline DWORD getTrackPlayTime() const {
+        if ( m_current_track == NULL )
+            return 0;
+
+        return m_track_timer.getTrackPosition();
     }
 
     sp_track* getPlayingTrack( ) {
@@ -243,6 +252,10 @@ public:
         return playlist;
     }
 
+    void sendEvent( PlayerEvent event, ULONG event_ms, LPCSTR track_link );
+    void sendTrackQueueEvent();
+    void sendPlaylistEvent( PlayerEvent event, sp_playlist *playlist );
+
 private:
     void _stopTrack(void);
     void _startTrack(void);
@@ -251,6 +264,8 @@ private:
     bool _readCredentials( CString& username, CString& credentials );
     void _writeCredentials( LPCSTR username, LPCSTR credentials );
     void _processTrackAnalysis();
+
+    EventListeners::iterator findListener( IPlayerEventCallback* listener );
 
     void sendCommand( SpotifyCommand cmd ) {
         m_spotify_command = cmd;
@@ -360,71 +375,122 @@ private:
         st->get_audio_buffer_stats( session, stats );
     }
     static void SP_CALLCONV ftor_playlist_added(sp_playlistcontainer *pc, sp_playlist *playlist, int position, void *userdata) {
+        if ( userdata == NULL )
+            return;
+
         SpotifyEngine* st = (SpotifyEngine*)userdata;
         st->playlist_added( pc, playlist, position, userdata );
     }
     static void SP_CALLCONV ftor_playlist_removed(sp_playlistcontainer *pc, sp_playlist *playlist, int position, void *userdata) {
+        if ( userdata == NULL )
+            return;
+
         SpotifyEngine* st = (SpotifyEngine*)userdata;
         st->playlist_removed( pc, playlist, position, userdata );
     }
     static void SP_CALLCONV ftor_playlist_moved(sp_playlistcontainer *pc, sp_playlist *playlist, int position, int new_position, void *userdata) {
+        if ( userdata == NULL )
+            return;
+
         SpotifyEngine* st = (SpotifyEngine*)userdata;
         st->playlist_moved( pc, playlist, position, new_position, userdata );
     }
     static void SP_CALLCONV ftor_container_loaded(sp_playlistcontainer *pc, void *userdata) {
+        if ( userdata == NULL )
+            return;
+            
         SpotifyEngine* st = (SpotifyEngine*)userdata;
         st->container_loaded( pc, userdata );
     }
 
     static void SP_CALLCONV ftor_tracks_added(sp_playlist *pl, sp_track * const *tracks, int num_tracks, int position, void *userdata) {
+        if ( userdata == NULL )
+            return;
+
         SpotifyEngine* st = (SpotifyEngine*)userdata;
         st->tracks_added( pl, tracks, num_tracks, position, userdata );
     }
     static void SP_CALLCONV ftor_tracks_removed(sp_playlist *pl, const int *tracks, int num_tracks, void *userdata) {
+        if ( userdata == NULL )
+            return;
+
         SpotifyEngine* st = (SpotifyEngine*)userdata;
         st->tracks_removed( pl, tracks, num_tracks, userdata );
     }
     static void SP_CALLCONV ftor_tracks_moved(sp_playlist *pl, const int *tracks, int num_tracks, int new_position, void *userdata ) {
+        if ( userdata == NULL )
+            return;
+
         SpotifyEngine* st = (SpotifyEngine*)userdata;
         st->tracks_moved( pl, tracks, num_tracks, new_position, userdata );
     }
     static void SP_CALLCONV ftor_playlist_renamed(sp_playlist *pl, void *userdata ) {
+        if ( userdata == NULL )
+            return;
+
         SpotifyEngine* st = (SpotifyEngine*)userdata;
         st->playlist_renamed( pl, userdata );
     }
     static void SP_CALLCONV ftor_playlist_state_changed(sp_playlist *pl, void *userdata ) {
+        if ( userdata == NULL )
+            return;
+
         SpotifyEngine* st = (SpotifyEngine*)userdata;
         st->playlist_state_changed( pl, userdata );
     }
     static void SP_CALLCONV ftor_playlist_update_in_progress(sp_playlist *pl, bool done, void *userdata) {
+        if ( userdata == NULL )
+            return;
+
         SpotifyEngine* st = (SpotifyEngine*)userdata;
         st->playlist_update_in_progress( pl, done, userdata );
     }
     static void SP_CALLCONV ftor_playlist_metadata_updated(sp_playlist *pl, void *userdata) {
+        if ( userdata == NULL )
+            return;
+
         SpotifyEngine* st = (SpotifyEngine*)userdata;
         st->playlist_metadata_updated( pl, userdata );
     }
     static void SP_CALLCONV ftor_track_created_changed(sp_playlist *pl, int position, sp_user *user, int when, void *userdata ) {
+        if ( userdata == NULL )
+            return;
+
         SpotifyEngine* st = (SpotifyEngine*)userdata;
         st->track_created_changed( pl, position, user, when, userdata );
     }
     static void SP_CALLCONV ftor_track_seen_changed(sp_playlist *pl, int position, bool seen, void *userdata ) {
+        if ( userdata == NULL )
+            return;
+
         SpotifyEngine* st = (SpotifyEngine*)userdata;
         st->track_seen_changed( pl, position, seen, userdata );
     }
     static void SP_CALLCONV ftor_description_changed(sp_playlist *pl, const char *desc, void *userdata ) {
+        if ( userdata == NULL )
+            return;
+
         SpotifyEngine* st = (SpotifyEngine*)userdata;
         st->description_changed( pl, desc, userdata );
     }
     static void SP_CALLCONV ftor_image_changed(sp_playlist *pl, const byte *image, void *userdata ) {
+        if ( userdata == NULL )
+            return;
+
         SpotifyEngine* st = (SpotifyEngine*)userdata;
         st->image_changed( pl, image, userdata );
     }
     static void SP_CALLCONV ftor_track_message_changed(sp_playlist *pl, int position, const char *message, void *userdata ) {
+        if ( userdata == NULL )
+            return;
+
         SpotifyEngine* st = (SpotifyEngine*)userdata;
         st->track_message_changed( pl, position, message, userdata );
     }
     static void SP_CALLCONV ftor_subscribers_changed(sp_playlist *pl, void *userdata ) {
+        if ( userdata == NULL )
+            return;
+
         SpotifyEngine* st = (SpotifyEngine*)userdata;
         st->subscribers_changed( pl, userdata );
     }

@@ -38,13 +38,11 @@ SpotifyEngine::SpotifyEngine(void) :
     m_spotify_session(NULL),
     m_spotify_command( CMD_NONE ),
     m_login_state( NOT_LOGGED_IN ),
-    m_paused( false ),
     m_audio_out( NULL ),
     m_track_length_ms( 0 ),
-    m_track_start_time( 0 ),
     m_track_seek_ms( 0 ),
+    m_track_timer( this ),
     Threadable( "Engine" )
-    // m_track_event( 0, 0, ENGINE_TRACK_EVENT_NAME, NULL )
 {
     memset( &spconfig, 0, sizeof(sp_session_config) );
 
@@ -171,6 +169,8 @@ bool SpotifyEngine::connect( LPCSTR username, LPCSTR password, LPCSTR blob )
         return false;
     }
 
+    m_track_timer.startThread();
+
     return startThread();
 }
 
@@ -178,6 +178,8 @@ bool SpotifyEngine::connect( LPCSTR username, LPCSTR password, LPCSTR blob )
 //
 bool SpotifyEngine::disconnect( void )
 {
+    m_track_timer.stopThread();
+
     if ( m_spotify_session ) {
         // Seems to be very important to stop all active tracks before killing Spotify
 
@@ -216,6 +218,93 @@ bool SpotifyEngine::disconnect( void )
 
 // ----------------------------------------------------------------------------
 //
+bool SpotifyEngine::registerEventListener( IPlayerEventCallback* listener )
+{
+    CSingleLock lock( &m_event_lock, TRUE );
+
+    if ( findListener( listener ) != m_event_listeners.end() )
+        return false;
+
+    m_event_listeners.push_back( listener );
+
+    return true;
+}
+
+// ----------------------------------------------------------------------------
+//
+bool SpotifyEngine::unregisterEventListener( IPlayerEventCallback* listener )
+{
+    CSingleLock lock( &m_event_lock, TRUE );
+
+    auto it = findListener( listener );
+    if ( it == m_event_listeners.end() )
+        return false;
+
+    m_event_listeners.erase( it );
+    return true;
+}
+
+// ----------------------------------------------------------------------------
+//
+EventListeners::iterator SpotifyEngine::findListener( IPlayerEventCallback* listener ) {
+    auto it=m_event_listeners.begin();
+
+    while ( it != m_event_listeners.end() ) {
+        if ( (*it) == listener )
+            break;
+        it++;
+    }
+
+    return it;
+}
+
+// ----------------------------------------------------------------------------
+//
+void SpotifyEngine::sendEvent( PlayerEvent event, ULONG event_ms, LPCSTR track_link ) 
+{
+    CSingleLock lock( &m_event_lock, TRUE );
+
+    PlayerEventData trackEvent( event, event_ms, track_link );
+
+    for ( IPlayerEventCallback* callback : m_event_listeners )
+        callback->notify( &trackEvent );
+
+    m_track_event.SetEvent();
+}
+
+// ----------------------------------------------------------------------------
+//
+void SpotifyEngine::sendTrackQueueEvent() 
+{
+    CSingleLock lock( &m_event_lock, TRUE );
+
+    PlayerEventData trackEvent( m_track_played_queue.size(), m_track_queue.size() );
+
+    for ( IPlayerEventCallback* callback : m_event_listeners )
+        callback->notify( &trackEvent );
+
+    m_track_event.SetEvent();
+}
+
+// ----------------------------------------------------------------------------
+//
+void SpotifyEngine::sendPlaylistEvent( PlayerEvent event, sp_playlist *playlist ) {
+/* Playlist notification appear to be really broken - just ignore these for now
+    sp_link* link = sp_link_create_from_playlist( playlist );
+
+    if ( link != NULL ) {
+        CString spotify_link;
+        LPSTR spotify_link_ptr = spotify_link.GetBufferSetLength( 512 );
+        sp_link_as_string ( link, spotify_link_ptr, 512 );
+        sp_link_release( link );
+
+        sendEvent( event, 0L, (LPCSTR)spotify_link );
+    }
+*/
+}
+
+// ----------------------------------------------------------------------------
+//
 void SpotifyEngine::stopTrack()
 {
     sendCommand( CMD_STOP_TRACK );
@@ -228,6 +317,8 @@ void SpotifyEngine::clearTrackQueue( )
     CSingleLock lock( &m_mutex, TRUE );
 
     m_track_queue.clear();
+
+    sendTrackQueueEvent();
 }
 
 // ----------------------------------------------------------------------------
@@ -254,8 +345,11 @@ void SpotifyEngine::previousTrack()
             m_track_played_queue.pop_back();
             playTrack( track.m_track, 0L ); 
         }
-        else                                                    // Current track was the only track in the played queue
+        else {                                                  // Current track was the only track in the played queue
             stopTrack();
+
+            sendTrackQueueEvent();
+        }
     }
 }
 
@@ -296,6 +390,8 @@ void SpotifyEngine::playTrack( sp_track* track, DWORD seek_ms )
     }
 
     sendCommand( CMD_NEXT_TRACK );
+
+    sendTrackQueueEvent();
 }
 
 // ----------------------------------------------------------------------------
@@ -309,12 +405,16 @@ void SpotifyEngine::playTracks( sp_playlist* pl )
         m_track_queue.push_back( TrackQueueEntry( track, 0L ) );
 
     sendCommand( CMD_NEXT_TRACK );
+
+    sendTrackQueueEvent();
 }
 
 // ----------------------------------------------------------------------------
 //
 sp_linktype SpotifyEngine::getTrackLink( sp_track* track, CString& spotify_link ) 
 {
+    spotify_link.Empty();
+
     sp_link* link = sp_link_create_from_track( track, 0 );
     if ( link == NULL )
         return SP_LINKTYPE_INVALID;
@@ -338,6 +438,8 @@ void SpotifyEngine::queueTracks( sp_playlist* pl )
         m_track_queue.push_back( TrackQueueEntry( track, 0L ) );
 
     sendCommand( CMD_CHECK_PLAYING );
+
+    sendTrackQueueEvent();
 }
 
 // ----------------------------------------------------------------------------
@@ -355,6 +457,8 @@ void SpotifyEngine::queueTrack( sp_track* track )
     m_track_queue.push_back( TrackQueueEntry( track, 0L ) );
 
     sendCommand( CMD_CHECK_PLAYING );
+
+    sendTrackQueueEvent();
 }
 
 // ----------------------------------------------------------------------------
@@ -439,7 +543,7 @@ UINT SpotifyEngine::run()
                                 m_current_track = NULL;
                                 wait_time = 0;
 
-                                m_track_event.SetEvent();                            // Track moved to stopped state
+                                m_track_timer.stop();
 
                                 _startTrack();
                             }
@@ -509,11 +613,11 @@ void SpotifyEngine::_stopTrack( )
         m_current_track = NULL;
         m_current_track_link.Empty();
         m_track_state = TRACK_ENDED;
-        m_track_start_time = m_track_length_ms = m_track_seek_ms = 0L;
-        m_pause_started = m_pause_accumulator = 0L;
-        removeTrackAnalyzer();
+        m_track_length_ms = m_track_seek_ms = 0L;
 
-        m_track_event.SetEvent();                            // Track moved to stopped state
+        m_track_timer.stop( );
+
+        removeTrackAnalyzer();
     }
 }
 
@@ -537,8 +641,6 @@ void SpotifyEngine::_startTrack( )
         m_track_state = TRACK_STREAM_PENDING;
         m_track_length_ms = sp_track_duration( m_current_track );
         m_track_seek_ms = entry.m_seek_ms > m_track_length_ms ? 0 : entry.m_seek_ms;
-        m_track_start_time = 0;
-        m_pause_started = m_pause_accumulator = 0L;
 
         getTrackLink( m_current_track, m_current_track_link );
 
@@ -548,12 +650,14 @@ void SpotifyEngine::_startTrack( )
             m_analyzer = new TrackAnalyzer( &m_waveFormat, m_track_length_ms, m_current_track_link );
         }
 
-        if ( !m_paused ) {
+        if ( !isTrackPaused() ) {
             result = sp_session_player_play( m_spotify_session, true );
             if ( result != SP_ERROR_OK ) {
                 log( "Error %d from sp_session_player_play", (INT)result );
             }
         }
+
+        sendTrackQueueEvent();
     }
 }
 
@@ -561,17 +665,13 @@ void SpotifyEngine::_startTrack( )
 //
 void SpotifyEngine::_resume( )
 {
-    if ( m_paused ) {
-        m_paused = false;
+    if ( isTrackPaused() ) {
         sp_session_player_play( m_spotify_session, true );
 
         if ( m_audio_out->isPaused() )
             m_audio_out->setPaused( false );
 
-        if ( m_pause_started )
-            m_pause_accumulator += (GetCurrentTime()-m_pause_started);
-
-        m_track_event.SetEvent();                                   // Track moved to play state
+        m_track_timer.resume();
     }
 }
 
@@ -579,13 +679,11 @@ void SpotifyEngine::_resume( )
 //
 void SpotifyEngine::_pause( )
 {
-    if ( !m_paused ) {
-        m_paused = true;
+    if ( !isTrackPaused() ) {
         m_audio_out->setPaused( true );
         sp_session_player_play( m_spotify_session, false );
-        m_pause_started = GetCurrentTime();
 
-        m_track_event.SetEvent();                                   // Track moved to pause state
+        m_track_timer.pause();
     }
 }
 

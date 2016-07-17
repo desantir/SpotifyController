@@ -1,5 +1,5 @@
 /* 
-Copyright (C) 2011-16 Robert DeSantis
+Copyright (C) 2011-2016 Robert DeSantis
 hopluvr at gmail dot com
 
 This file is part of DMX Studio.
@@ -63,6 +63,24 @@ bool DMX_PLAYER_API Disconnect( void )
 
 // ----------------------------------------------------------------------------
 //
+bool DMX_PLAYER_API RegisterEventListener( IPlayerEventCallback* listener ) 
+{
+    AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+    return theApp.m_spotify.registerEventListener( listener );
+}
+
+// ----------------------------------------------------------------------------
+//
+bool DMX_PLAYER_API UnregisterEventListener( IPlayerEventCallback* listener )
+{
+    AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+    return theApp.m_spotify.unregisterEventListener( listener );
+}
+
+// ----------------------------------------------------------------------------
+//
 bool DMX_PLAYER_API Signon( LPCSTR username, LPCSTR password )
 {
     AFX_MANAGE_STATE(AfxGetStaticModuleState());
@@ -78,17 +96,8 @@ bool DMX_PLAYER_API WaitOnTrackEvent( DWORD wait_ms, LPSTR track_link, bool* pau
 
     bool result = ::WaitForSingleObject( theApp.m_spotify.getTrackEvent(), wait_ms ) == WAIT_OBJECT_0;
 
-    if ( track_link ) {
-        sp_track* track = theApp.m_spotify.getPlayingTrack();
-        if ( track != NULL ) {
-            sp_link * link = sp_link_create_from_track( track, 0 );
-
-            sp_link_as_string ( link, track_link, MAX_LINK_SIZE );
-            sp_link_release( link );
-        }
-        else
-            *track_link = '\0';
-    }
+    if ( track_link )
+        strcpy_s( track_link, MAX_LINK_SIZE, theApp.m_spotify.getCurrentTrack() );
 
     if ( paused )
         *paused = theApp.m_spotify.isTrackPaused();
@@ -279,13 +288,10 @@ bool DMX_PLAYER_API GetPlayingTrack( LPSTR track_link, DWORD* track_length,
 {
     AFX_MANAGE_STATE(AfxGetStaticModuleState());
 
-    if ( track_link ) {
-        if ( theApp.m_spotify.getPlayingTrack() != NULL )
-            strcpy_s( track_link, MAX_LINK_SIZE, theApp.m_spotify.getPlayingTrackLink() );
-        else
-            track_link[0] = '\0';
-    }
+    sp_track* playing = theApp.m_spotify.getPlayingTrack();
 
+    if ( track_link )
+        strcpy_s( track_link, MAX_LINK_SIZE, theApp.m_spotify.getPlayingTrackLink() );
     if ( track_length )
         *track_length =  theApp.m_spotify.getTrackLength();
     if ( time_remaining )
@@ -295,7 +301,7 @@ bool DMX_PLAYER_API GetPlayingTrack( LPSTR track_link, DWORD* track_length,
     if ( previous_tracks )
         *previous_tracks = theApp.m_spotify.getNumPlayedTracks();
 
-    return true;
+    return ( playing != NULL );
 }
 
 // ----------------------------------------------------------------------------
