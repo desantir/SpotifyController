@@ -45,23 +45,22 @@ MA 02111-1307, USA.
 #include <shlobj.h> 
 #include <afxmt.h>
 #include <map>
+#include <unordered_map>
 #include <set>
 #include <vector>
 #include <list>
+#include <stack>
 #include <iterator>
 #include <algorithm>
 #include <Mmdeviceapi.h>
 #include <mmsystem.h>
 #include <Audioclient.h>
+#include <atlutil.h>
 
 #include "include\libspotify\api.h"
 
 #include "StudioException.h"
 #include "SpotifyEngineApp.h"
-
-extern const uint8_t g_appkey[];
-extern const size_t g_appkey_size;
-extern const char * g_EchoNestKey;
 
 
 

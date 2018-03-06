@@ -25,15 +25,15 @@ MA 02111-1307, USA.
 #include "stdafx.h"
 #include "resource.h"		// main symbols
 #include "SpotifyEngine.h"
-#include "EchoNestEngine.h"
+#include "SpotifyWebEngine.h"
 
 class CSpotifyEngineApp : public CWinApp
 {
 public:
-    SpotifyEngine   m_spotify;
-    EchoNestEngine  m_echonest;
+    SpotifyEngine		m_spotify;					// Deprecated libspotify used to play tracks
+	SpotifyWebEngine	m_spotify_web;				// Web API used for catalog and audio info
 
-    FILE*           m_hLog;
+    FILE*				m_hLog;
 
     CSpotifyEngineApp();
     ~CSpotifyEngineApp();

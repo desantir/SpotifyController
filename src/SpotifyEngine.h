@@ -31,21 +31,25 @@ MA 02111-1307, USA.
 
 #define ENGINE_TRACK_EVENT_NAME "DMXStudioEngineTrackEvent"
 
-#define SPOTIFY_URI_PREFIX "spotify:track:"
+#define SPOTIFY_TOKEN_FILE		"spotify.tokens"
+#define SPOTIFY_TRACK_PREFIX	"spotify:track:"
+#define LOCAL_TRACK_PREFIX		"spotify:local:"
+#define SPOTIFY_ALBUM_PREFIX	"spotify:album:"
+
+typedef std::vector<CString> TrackLinkList;
 
 struct TrackQueueEntry {
 
-    sp_track*   m_track;
+    CString		m_track_link;
     DWORD       m_seek_ms;
 
-    TrackQueueEntry( sp_track* track, DWORD seek_ms ) :
-        m_track( track ),
+    TrackQueueEntry( LPCSTR track_link, DWORD seek_ms ) :
+		m_track_link( track_link ),
         m_seek_ms( seek_ms )
     {}
 };
 
 typedef std::vector<sp_playlist *> PlaylistArray;
-typedef std::vector<sp_track *> TrackArray;
 typedef std::list<TrackQueueEntry> TrackQueue;
 typedef std::map<CString, AnalyzeInfo *> TrackAnalysisCache;
 
@@ -140,22 +144,18 @@ public:
         return m_spotify_error;
     }
 
-    sp_linktype getTrackLink( sp_track* track, CString& spotify_link );
-
     LPCSTR getCurrentTrack() const {
         return (LPCSTR)m_current_track_link;
     }
 
-    PlaylistArray getPlaylists( void );
-    TrackArray getTracks( sp_playlist* pl );
-    void playTrack( sp_track* track, DWORD seek_ms );
+    void playTrack( LPCSTR track_link, DWORD seek_ms );
     void nextTrack();
     void previousTrack();
-    void queueTrack( sp_track* track );
+    void queueTrack( LPCSTR track_link );
     void stopTrack(void);
     void pauseTrack( bool pause );
-    void playTracks( sp_playlist* pl );
-    void queueTracks( sp_playlist* pl );
+    void playTracks( TrackLinkList& playlist );
+    void queueTracks( TrackLinkList& playlist );
     void clearTrackQueue( );
     AnalyzeInfo* getTrackAnalysis( LPCSTR track_link );
 
@@ -169,10 +169,6 @@ public:
 
     inline DWORD getTrackLength() const {
         return m_track_length_ms;
-    }
-
-    DWORD getTrackLength( sp_track* track ) const {
-        return sp_track_duration( track );
     }
 
     inline DWORD getTrackRemainingTime() const  {
@@ -196,18 +192,15 @@ public:
         return m_track_timer.getTrackPosition();
     }
 
-    sp_track* getPlayingTrack( ) {
-        return m_current_track;
-    }
-
     LPCSTR getPlayingTrackLink( ) {
-        return m_current_track_link;
+        LPCSTR link = m_current_track_link.IsEmpty() ? NULL : (LPCSTR)m_current_track_link;
+		return link;
     }
 
-    TrackArray getQueuedTracks() {
-        TrackArray tracks;
+	TrackLinkList getQueuedTracks() {
+		TrackLinkList tracks;
         for ( TrackQueueEntry entry : m_track_queue )
-            tracks.push_back( entry.m_track );
+            tracks.push_back( entry.m_track_link );
         return tracks;
     }
 
@@ -219,10 +212,10 @@ public:
         return m_track_played_queue.size();
     }
 
-    TrackArray getPlayedTracks() {
-        TrackArray tracks;
+	TrackLinkList getPlayedTracks() {
+		TrackLinkList tracks;
         for ( TrackQueueEntry entry : m_track_played_queue )
-            tracks.push_back( entry.m_track );
+            tracks.push_back( entry.m_track_link );
         return tracks;
     }
 
@@ -239,17 +232,6 @@ public:
         sp_track* track = sp_link_as_track ( link );
         sp_link_release( link );
         return track;
-    }
-
-    sp_playlist* linkToPlaylist( LPCSTR playlist_link )
-    {
-        sp_link* link = sp_link_create_from_string ( playlist_link );
-        if ( link == NULL )
-            return NULL;
-
-        sp_playlist* playlist = sp_playlist_create ( m_spotify_session, link );
-        sp_link_release( link );
-        return playlist;
     }
 
     void sendEvent( PlayerEvent event, ULONG event_ms, LPCSTR track_link );
@@ -495,4 +477,8 @@ private:
         st->subscribers_changed( pl, userdata );
     }
 };
+
+extern const uint8_t g_appkey[];
+extern const size_t g_appkey_size;
+extern const char * g_EchoNestKey;
 

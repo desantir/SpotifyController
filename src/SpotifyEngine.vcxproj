@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -15,20 +15,20 @@
     <ProjectGuid>{44C9D21D-197A-47F4-A407-43C8648D7BF9}</ProjectGuid>
     <RootNamespace>SpotifyEngine</RootNamespace>
     <Keyword>MFCDLLProj</Keyword>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
     <CharacterSet>NotSet</CharacterSet>
     <UseOfMfc>Dynamic</UseOfMfc>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>NotSet</CharacterSet>
     <UseOfMfc>Dynamic</UseOfMfc>
@@ -104,13 +104,14 @@
   <ItemGroup>
     <ClCompile Include="AudioFrameBuffer.cpp" />
     <ClCompile Include="AudioOutputStream.cpp" />
-    <ClCompile Include="EchoNestEngine.cpp" />
+    <ClCompile Include="HttpUtils.cpp" />
     <ClCompile Include="MusicPlayerApi.cpp" />
     <ClCompile Include="SimpleJsonParser.cpp" />
     <ClCompile Include="SpotifyApiKey.cpp" />
     <ClCompile Include="SpotifyCallbacks.cpp" />
     <ClCompile Include="SpotifyEngine.cpp" />
     <ClCompile Include="SpotifyEngineApp.cpp" />
+    <ClCompile Include="SpotifyWebEngine.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -122,13 +123,14 @@
   <ItemGroup>
     <ClInclude Include="AudioFrameBuffer.h" />
     <ClInclude Include="AudioOutputStream.h" />
-    <ClInclude Include="EchoNestEngine.h" />
+    <ClInclude Include="HttpUtils.h" />
     <ClInclude Include="MusicPlayerApi.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="SimpleJsonBuilder.h" />
     <ClInclude Include="SimpleJsonParser.h" />
     <ClInclude Include="SpotifyEngine.h" />
     <ClInclude Include="SpotifyEngineApp.h" />
+    <ClInclude Include="SpotifyWebEngine.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="StudioException.h" />
     <ClInclude Include="targetver.h" />

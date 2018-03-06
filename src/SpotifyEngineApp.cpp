@@ -41,7 +41,7 @@ CSpotifyEngineApp::CSpotifyEngineApp() :
 
     openLogFile( );
 
-    log_status( "DMXStudio Spotify Music Controller version 0.0.1 started" );
+    log_status( "DMXStudio Spotify Music Controller version 0.0.2 started" );
 }
 
 // ----------------------------------------------------------------------------
@@ -83,11 +83,11 @@ CString getUserDocumentDirectory()
 void CSpotifyEngineApp::openLogFile( )
 {
     CString filename;
-    filename.Format( "%s\\DMXStudio\\SpotifyMusicController.log", getUserDocumentDirectory() );
+    filename.Format( "%s\\DMXStudio\\SpotifyMusicController.log", (LPCSTR)getUserDocumentDirectory() );
 
     if ( PathFileExists( filename ) ) {
         CString move_filename;
-        move_filename.Format( "%s\\DMXStudio\\Logs", getUserDocumentDirectory() );
+        move_filename.Format( "%s\\DMXStudio\\Logs", (LPCSTR)getUserDocumentDirectory() );
         CreateDirectory( move_filename, NULL );
         move_filename.AppendFormat( "\\SpotifyMusicController-%010ld.log", GetCurrentTime() );
         MoveFile( filename, move_filename );
